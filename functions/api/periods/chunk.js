@@ -2,7 +2,7 @@
 // Inserts a batch of rows (called repeatedly by the client so it can show
 // a % progress bar). Internally re-chunks to 7 rows/statement to stay
 // under D1's 100-bound-parameter-per-query limit (14 columns * 7 = 98).
-const D1_CHUNK = 7;
+const D1_CHUNK = 6; // 6 rows * 15 columns = 90 bound params, under D1's 100-param-per-query limit
 const COLS = [
   'period_id', 'channel', 'category', 'main_category', 'sub_category_raw',
   'detail_sub_category', 'escalated', 'date_start', 'date_open', 'date_end',

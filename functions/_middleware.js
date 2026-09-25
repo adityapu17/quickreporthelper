@@ -18,7 +18,9 @@ export async function onRequest(context) {
   // Always public: the login page itself, the login/logout calls, and the
   // "how many users exist" check the login page uses to decide whether to
   // show a normal login form or a first-run "create admin account" form.
-  if (path === '/login.html' || path === '/api/login' || path === '/api/logout' || path === '/api/users-count') {
+  // Both /login.html and /login are allowed — Cloudflare Pages auto-strips
+  // the .html extension from URLs, so both forms can be hit.
+  if (path === '/login.html' || path === '/login' || path === '/api/login' || path === '/api/logout' || path === '/api/users-count') {
     return next();
   }
 
@@ -36,7 +38,7 @@ export async function onRequest(context) {
     if (path.startsWith('/api/')) {
       return Response.json({ error: 'Unauthorized. Silakan login.' }, { status: 401 });
     }
-    return Response.redirect(url.origin + '/login.html', 302);
+    return Response.redirect(url.origin + '/login', 302);
   }
   return next();
 }

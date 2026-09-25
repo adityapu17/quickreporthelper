@@ -152,7 +152,7 @@
   </div>
 
   <div class="card" id="db-panel" style="max-width:820px;">
-    <h2>Data Tersimpan (Database) <a href="/database.html" style="font-size:12px; font-weight:600; color:var(--teal); text-decoration:none;">Kelola Database →</a> <a href="/users.html" style="font-size:12px; font-weight:600; color:var(--teal); text-decoration:none;">Kelola User →</a></h2>
+    <h2>Data Tersimpan (Database) <a href="/database" style="font-size:12px; font-weight:600; color:var(--teal); text-decoration:none;">Kelola Database →</a> <a href="/users" style="font-size:12px; font-weight:600; color:var(--teal); text-decoration:none;">Kelola User →</a></h2>
     <div style="padding:16px 20px 20px;">
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
         <button class="ghost" id="btn-save-curr" disabled>Simpan Bulan Berjalan ke DB</button>
@@ -1723,7 +1723,7 @@ document.getElementById('btn-load-curr').addEventListener('click', () => loadDbP
 document.getElementById('btn-load-prev').addEventListener('click', () => loadDbPeriodInto('prev'));
 document.getElementById('btn-logout').addEventListener('click', async () => {
   await fetch('/api/logout', { method: 'POST' });
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 });
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(data => {
   if (data && data.email) document.getElementById('whoami').textContent = data.email;

@@ -162,6 +162,7 @@
         <button class="ghost" id="btn-load-curr">Muat sbg Bulan Berjalan</button>
         <button class="ghost" id="btn-load-prev">Muat sbg Bulan Lalu</button>
         <button class="ghost" id="btn-refresh-periods">↻</button>
+        <button class="ghost" id="btn-delete-period" style="color:var(--red);">Hapus Periode Ini</button>
       </div>
       <div style="border-top:1px dashed var(--line); padding-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <span style="font-size:12.5px; font-weight:600; color:var(--slate-soft);">Compare dari DB:</span>
@@ -189,6 +190,7 @@
             <option value="channel">Filter by Channel</option>
           </select>
           <select id="filter-value-select"><option>—</option></select>
+          <select id="filter-date-select"><option value="all">Semua Tanggal</option></select>
         </div>
         <table>
           <thead><tr><th>#</th><th>Kategori</th><th class="num">Jumlah</th></tr></thead>
@@ -1653,6 +1655,23 @@ async function loadDbPeriodInto(period){
 }
 document.getElementById('btn-load-curr').addEventListener('click', () => loadDbPeriodInto('curr'));
 document.getElementById('btn-load-prev').addEventListener('click', () => loadDbPeriodInto('prev'));
+document.getElementById('btn-delete-period').addEventListener('click', async () => {
+  const sel = document.getElementById('db-period-select');
+  const val = sel.value;
+  if (!val || !val.includes('-')) return;
+  const label = sel.options[sel.selectedIndex].textContent;
+  if (!confirm(`Hapus data "${label}" dari database? Tindakan ini tidak bisa dibatalkan.`)) return;
+  const [year, month] = val.split('-').map(Number);
+  document.getElementById('db-status').textContent = 'Menghapus...';
+  try {
+    const res = await fetch(`/api/periods/${year}/${month}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('status ' + res.status);
+    document.getElementById('db-status').textContent = 'Terhapus ✓ (' + label + ')';
+    refreshPeriodsList();
+  } catch (err) {
+    document.getElementById('db-status').textContent = 'Error: ' + err.message;
+  }
+});
 document.getElementById('btn-compare-db').addEventListener('click', async () => {
   const valA = document.getElementById('db-compare-a').value;
   const valB = document.getElementById('db-compare-b').value;
@@ -1679,9 +1698,24 @@ document.getElementById('btn-compare-db').addEventListener('click', async () => 
 refreshPeriodsList();
 
 // ============ FILTER & ANALISA TOP KATEGORI ============
+function uniqueSortedDateKeys(rows){
+  const set = new Set();
+  (rows || []).forEach(r => {
+    if (r.date instanceof Date) {
+      set.add(r.date.getFullYear() + '-' + String(r.date.getMonth()+1).padStart(2,'0') + '-' + String(r.date.getDate()).padStart(2,'0'));
+    }
+  });
+  return [...set].sort();
+}
+function formatDateKeyID(key){
+  const [y,m,d] = key.split('-').map(Number);
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return `${d} ${bulan[m-1]} ${y}`;
+}
 function refreshFilterValueOptions(){
   const type = document.getElementById('filter-type-select').value;
   const valSel = document.getElementById('filter-value-select');
+  const dateSel = document.getElementById('filter-date-select');
   const note = document.getElementById('filter-company-note');
   note.style.display = type === 'company' ? '' : 'none';
   if (!curr.ticket){ valSel.innerHTML = '<option>—</option>'; return; }
@@ -1690,6 +1724,8 @@ function refreshFilterValueOptions(){
   if (type === 'produk') values = ['E-Meterai', 'Digital Sign', 'Lain-lain'];
   else if (type === 'company') values = uniqueSorted(rows, 'company');
   else if (type === 'channel') values = [...allChannelsPresent()];
+  const dateKeys = uniqueSortedDateKeys(rows);
+  dateSel.innerHTML = '<option value="all">Semua Tanggal</option>' + dateKeys.map(k => `<option value="${k}">${formatDateKeyID(k)}</option>`).join('');
   if (!values.length){
     valSel.innerHTML = '<option>Tidak ada data</option>';
     document.getElementById('filter-result-body').innerHTML = '';
@@ -1701,17 +1737,23 @@ function refreshFilterValueOptions(){
 function renderFilterResult(){
   const type = document.getElementById('filter-type-select').value;
   const val = document.getElementById('filter-value-select').value;
+  const dateVal = document.getElementById('filter-date-select').value;
   const body = document.getElementById('filter-result-body');
   if (!curr.ticket || !val){ body.innerHTML = ''; return; }
   const rows = aggregateAllChannels(curr.ticket);
   let field = type === 'produk' ? 'category' : (type === 'company' ? 'company' : 'channel');
-  const scoped = rows.filter(r => (r[field] || '').toString() === val);
+  let scoped = rows.filter(r => (r[field] || '').toString() === val);
+  if (dateVal && dateVal !== 'all'){
+    scoped = scoped.filter(r => r.date instanceof Date &&
+      (r.date.getFullYear() + '-' + String(r.date.getMonth()+1).padStart(2,'0') + '-' + String(r.date.getDate()).padStart(2,'0')) === dateVal);
+  }
   const top = topCategoriesFor(scoped, 10);
   if (!top.length){ body.innerHTML = '<tr><td colspan="3" class="label">Tidak ada data.</td></tr>'; return; }
   body.innerHTML = top.map((c,i) => `<tr><td class="label">${i+1}</td><td>${c.label}</td><td class="num">${c.count}</td></tr>`).join('');
 }
 document.getElementById('filter-type-select').addEventListener('change', refreshFilterValueOptions);
 document.getElementById('filter-value-select').addEventListener('change', renderFilterResult);
+document.getElementById('filter-date-select').addEventListener('change', renderFilterResult);
 
 // ============ POPULASI HANDLING TIME & ESCALATION TIME ============
 function refreshPopChannelOptions(){

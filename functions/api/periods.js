@@ -1,4 +1,4 @@
-const CHUNK_SIZE = 25;
+const CHUNK_SIZE = 7; // 7 rows * 14 columns = 98 bound params, under D1's 100-param-per-query limit
 const COLS = [
   'period_id', 'channel', 'category', 'main_category', 'sub_category_raw',
   'detail_sub_category', 'escalated', 'date_start', 'date_open', 'date_end',
@@ -28,12 +28,12 @@ export async function onRequestPost(context) {
     if (existing) {
       periodId = existing.id;
       await env.DB.prepare('DELETE FROM tickets WHERE period_id = ?').bind(periodId).run();
-      await env.DB.prepare("UPDATE periods SET label = ?, row_count = ?, uploaded_at = datetime('now') WHERE id = ?")
-        .bind(label || null, rows.length, periodId).run();
+      await env.DB.prepare("UPDATE periods SET label = ?, row_count = 0 WHERE id = ?")
+        .bind(label || null, periodId).run();
     } else {
       const res = await env.DB.prepare(
-        'INSERT INTO periods (year, month, label, row_count) VALUES (?, ?, ?, ?)'
-      ).bind(year, month, label || null, rows.length).run();
+        'INSERT INTO periods (year, month, label, row_count) VALUES (?, ?, ?, 0)'
+      ).bind(year, month, label || null).run();
       periodId = res.meta.last_row_id;
     }
 
@@ -52,6 +52,10 @@ export async function onRequestPost(context) {
       });
       await env.DB.prepare(sql).bind(...params).run();
     }
+
+    // Only mark the final row_count once every chunk has inserted successfully.
+    await env.DB.prepare("UPDATE periods SET row_count = ?, uploaded_at = datetime('now') WHERE id = ?")
+      .bind(rows.length, periodId).run();
 
     return Response.json({ ok: true, period_id: periodId, row_count: rows.length });
   } catch (err) {

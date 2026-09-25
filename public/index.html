@@ -1606,7 +1606,11 @@ async function apiSavePeriod(ticketData){
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ year: ticketData.periodYear, month: ticketData.periodMonth, label: ticketData.periodLabel })
   });
-  if (!initRes.ok) { setSaveProgress(null); throw new Error('Gagal inisialisasi (' + initRes.status + ')'); }
+  if (!initRes.ok) {
+    setSaveProgress(null);
+    const errData = await initRes.json().catch(() => ({}));
+    throw new Error('Gagal inisialisasi (' + initRes.status + '): ' + (errData.error || 'unknown'));
+  }
   const { period_id } = await initRes.json();
 
   for (let i = 0; i < rows.length; i += SAVE_UPLOAD_CHUNK) {
@@ -1616,7 +1620,11 @@ async function apiSavePeriod(ticketData){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ period_id, rows: chunk })
     });
-    if (!res.ok) { setSaveProgress(null); throw new Error('Gagal menyimpan baris (' + res.status + ')'); }
+    if (!res.ok) {
+      setSaveProgress(null);
+      const errData = await res.json().catch(() => ({}));
+      throw new Error('Gagal menyimpan baris (' + res.status + '): ' + (errData.error || 'unknown'));
+    }
     setSaveProgress(((i + chunk.length) / rows.length) * 100, 'Menyimpan... ');
   }
 
@@ -1625,7 +1633,11 @@ async function apiSavePeriod(ticketData){
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ period_id, row_count: rows.length })
   });
-  if (!finRes.ok) { setSaveProgress(null); throw new Error('Gagal finalisasi (' + finRes.status + ')'); }
+  if (!finRes.ok) {
+    setSaveProgress(null);
+    const errData = await finRes.json().catch(() => ({}));
+    throw new Error('Gagal finalisasi (' + finRes.status + '): ' + (errData.error || 'unknown'));
+  }
   setSaveProgress(100, 'Selesai! ');
   setTimeout(() => setSaveProgress(null), 1500);
   return { ok: true, period_id, row_count: rows.length };

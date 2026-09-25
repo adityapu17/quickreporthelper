@@ -147,22 +147,29 @@
     <button class="ghost" id="btn-copy-all" disabled>Copy semua tabel (text)</button>
     <button class="ghost" id="btn-capture-mode" disabled>Mode Capture</button>
     <span class="status" id="status-line"></span>
+    <span id="whoami" style="margin-left:auto; font-size:12px; color:var(--slate-soft);"></span>
+    <button class="ghost" id="btn-logout">Logout</button>
   </div>
 
   <div class="card" id="db-panel" style="max-width:820px;">
-    <h2>Data Tersimpan (Database)</h2>
+    <h2>Data Tersimpan (Database) <a href="/database.html" style="font-size:12px; font-weight:600; color:var(--teal); text-decoration:none;">Kelola Database →</a> <a href="/users.html" style="font-size:12px; font-weight:600; color:var(--teal); text-decoration:none;">Kelola User →</a></h2>
     <div style="padding:16px 20px 20px;">
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
         <button class="ghost" id="btn-save-curr" disabled>Simpan Bulan Berjalan ke DB</button>
         <button class="ghost" id="btn-save-prev" disabled>Simpan Bulan Lalu ke DB</button>
         <span class="status" id="db-status"></span>
+      </div>
+      <div id="save-progress-wrap" style="display:none; margin-bottom:14px;">
+        <div style="height:8px; border-radius:4px; background:#e6ebf0; overflow:hidden; max-width:360px;">
+          <div id="save-progress-fill" style="height:100%; width:0%; background:var(--teal); transition:width .15s;"></div>
+        </div>
+        <div id="save-progress-label" style="font-size:11.5px; color:var(--slate-soft); margin-top:4px;">0%</div>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
         <select id="db-period-select" style="min-width:220px;"><option>Memuat periode…</option></select>
         <button class="ghost" id="btn-load-curr">Muat sbg Bulan Berjalan</button>
         <button class="ghost" id="btn-load-prev">Muat sbg Bulan Lalu</button>
         <button class="ghost" id="btn-refresh-periods">↻</button>
-        <button class="ghost" id="btn-delete-period" style="color:var(--red);">Hapus Periode Ini</button>
       </div>
       <div style="border-top:1px dashed var(--line); padding-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <span style="font-size:12.5px; font-weight:600; color:var(--slate-soft);">Compare dari DB:</span>
@@ -356,6 +363,20 @@ function colIdx(headers, name, required){
   if (i === -1 && required) throw new Error('Kolom "' + name + '" tidak ditemukan.');
   return i;
 }
+// Some exports store date/time cells as plain text (e.g. "2026-09-01 08:04:32")
+// instead of a real Excel date value, so `instanceof Date` alone misses them.
+// This accepts a genuine Date, or a parseable date-like string; returns null
+// for blanks/dashes ("-") or anything else that isn't a real timestamp.
+function toDateSafe(v){
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === 'string'){
+    const t = v.trim();
+    if (!t || t === '-') return null;
+    const d = new Date(t.replace(' ', 'T'));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
 
 // ---- TICKET FILE: volume, N-FCR, Kategori Produk, per channel ----
 function parseTicketFile(buf){
@@ -379,6 +400,7 @@ function parseTicketFile(buf){
     date_end: colIdx(headers, 'date_end_interaction', false),
     detailSubCategory: colIdx(headers, 'detailSubCategory', false),
     customer_hp: colIdx(headers, 'customer_hp', false),
+    customer_email: colIdx(headers, 'customer_email', false),
     customer_category: colIdx(headers, 'ticket_Customer_Category', false),
     company: companyHeaderIdx
   };
@@ -402,21 +424,23 @@ function parseTicketFile(buf){
     byChannel[chan].push({
       category: normCategory(row[idx.subCategory]),
       escalated: (row[idx.is_escalated] || '').toString().trim().toLowerCase() === 'escalated',
-      date: dateField !== -1 && row[dateField] instanceof Date ? row[dateField] : null,
-      dateStart: idx.date_start !== -1 && row[idx.date_start] instanceof Date ? row[idx.date_start] : null,
-      dateOpen: idx.date_open !== -1 && row[idx.date_open] instanceof Date ? row[idx.date_open] : null,
-      dateEnd: idx.date_end !== -1 && row[idx.date_end] instanceof Date ? row[idx.date_end] : null,
+      date: dateField !== -1 ? toDateSafe(row[dateField]) : null,
+      dateStart: idx.date_start !== -1 ? toDateSafe(row[idx.date_start]) : null,
+      dateOpen: idx.date_open !== -1 ? toDateSafe(row[idx.date_open]) : null,
+      dateEnd: idx.date_end !== -1 ? toDateSafe(row[idx.date_end]) : null,
       detailSubCategory: idx.detailSubCategory !== -1 ? (row[idx.detailSubCategory] || '') : '',
       subCategoryRaw: (row[idx.subCategory] || '').toString().trim(),
       phone: idx.customer_hp !== -1 ? (row[idx.customer_hp] || '') : '',
+      customerEmail: idx.customer_email !== -1 ? (row[idx.customer_email] || '').toString().trim() : '',
       mainCategory: idx.mainCategory !== -1 ? (row[idx.mainCategory] || '').toString().trim() : '',
       customerCategory: idx.customer_category !== -1 ? (row[idx.customer_category] || '').toString().trim() : '',
       company: idx.company !== -1 ? (row[idx.company] || '').toString().trim() : '',
       channel: chan,
       raw: rawObj
     });
-    if (idx.date_start !== -1 && row[idx.date_start] instanceof Date){
-      const key = row[idx.date_start].getFullYear() + '-' + row[idx.date_start].getMonth();
+    if (idx.date_start !== -1 && toDateSafe(row[idx.date_start])){
+      const ds = toDateSafe(row[idx.date_start]);
+      const key = ds.getFullYear() + '-' + ds.getMonth();
       monthCounts[key] = (monthCounts[key] || 0) + 1;
     }
   });
@@ -721,12 +745,12 @@ function computeServiceTypeStats(rows){
 // ---- HANDLING TIME (Email/WhatsApp Business): gap date_start_interaction -> date_open ----
 function computeHandlingTime(rows){
   const items = (rows || [])
-    .filter(r => r.dateStart instanceof Date && r.dateOpen instanceof Date)
+    .filter(r => r.dateStart instanceof Date && r.dateEnd instanceof Date)
     .map(r => ({
-      durMin: (r.dateOpen - r.dateStart) / 60000,
+      durMin: (r.dateEnd - r.dateStart) / 60000,
       dateStart: r.dateStart,
-      detail: r.detailSubCategory,
-      phone: r.phone
+      detail: `${r.mainCategory || '-'} - ${r.subCategoryRaw || '-'} - ${r.detailSubCategory || '-'}`,
+      pic: r.customerEmail || '-'
     }))
     .filter(r => r.durMin >= 0);
   if (!items.length) return null;
@@ -1277,10 +1301,10 @@ function render(){
       const fmtDateShort = d => d.getDate() + '-' + MONTH_ABBR[d.getMonth()];
       const fmtTimeShort = d => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
       const rowHtml = (r, tag) => `
-        <tr><td class="label">${tag}</td><td>${fmtDateShort(r.dateStart)}</td><td>${fmtTimeShort(r.dateStart)}</td><td>${r.detail || '-'}</td><td class="num">${r.durMin.toFixed(2)}</td><td>${r.phone || '-'}</td></tr>`;
+        <tr><td class="label">${tag}</td><td>${fmtDateShort(r.dateStart)}</td><td>${fmtTimeShort(r.dateStart)}</td><td>${r.detail || '-'}</td><td class="num">${r.durMin.toFixed(2)}</td><td>${r.pic || '-'}</td></tr>`;
       htSampleBody.innerHTML = rowHtml(ht.fastest, 'Tercepat') + rowHtml(ht.slowest, 'Terlama');
     } else {
-      htBody.innerHTML = '<tr><td class="label" colspan="3">Data date_open tidak tersedia.</td></tr>';
+      htBody.innerHTML = '<tr><td class="label" colspan="3">Data date_start_interaction / date_end_interaction tidak tersedia.</td></tr>';
       htNarr.innerHTML = '';
       htSampleBody.innerHTML = '';
     }
@@ -1458,7 +1482,14 @@ function enhanceCopyButtons(rootId){
   root.querySelectorAll('.card').forEach(card => {
     const h2 = card.querySelector('h2');
     if (!h2) return;
-    if (h2.querySelector('.copy-table-btn') || h2.querySelector('.copy-image-btn')) return; // already added once
+    if (card.querySelector('.copy-table-btn') || card.querySelector('.copy-image-btn')) return; // already added once
+    let toolbar = card.querySelector('.card-toolbar');
+    if (!toolbar){
+      toolbar = document.createElement('div');
+      toolbar.className = 'card-toolbar';
+      toolbar.style.cssText = 'display:flex; justify-content:flex-end; padding:8px 20px; border-bottom:1px solid var(--line); background:#fbfcfd;';
+      h2.insertAdjacentElement('afterend', toolbar);
+    }
     const table = card.querySelector('table');
     if (table){
       const btn = document.createElement('button');
@@ -1466,14 +1497,14 @@ function enhanceCopyButtons(rootId){
       btn.className = 'copy-table-btn';
       btn.textContent = 'Copy Table';
       btn.addEventListener('click', (e) => { e.stopPropagation(); copyTableRich(table, btn); });
-      h2.appendChild(btn);
+      toolbar.appendChild(btn);
     } else {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'copy-image-btn';
       btn.textContent = 'Copy Image';
       btn.addEventListener('click', (e) => { e.stopPropagation(); copyCardAsImage(card, btn); });
-      h2.appendChild(btn);
+      toolbar.appendChild(btn);
     }
   });
 }
@@ -1541,6 +1572,16 @@ async function apiListPeriods(){
   if (!res.ok) throw new Error('Gagal mengambil daftar periode (' + res.status + ')');
   return res.json();
 }
+function setSaveProgress(pct, label){
+  const wrap = document.getElementById('save-progress-wrap');
+  const fill = document.getElementById('save-progress-fill');
+  const lbl = document.getElementById('save-progress-label');
+  if (pct === null){ wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  fill.style.width = Math.round(pct) + '%';
+  lbl.textContent = (label || '') + Math.round(pct) + '%';
+}
+const SAVE_UPLOAD_CHUNK = 250; // rows per HTTP call to /api/periods/chunk
 async function apiSavePeriod(ticketData){
   const rows = aggregateAllChannels(ticketData).map(r => ({
     channel: r.channel,
@@ -1553,17 +1594,41 @@ async function apiSavePeriod(ticketData){
     dateOpen: r.dateOpen instanceof Date ? r.dateOpen.toISOString() : null,
     dateEnd: r.dateEnd instanceof Date ? r.dateEnd.toISOString() : null,
     phone: r.phone,
+    customerEmail: r.customerEmail,
     customerCategory: r.customerCategory,
     company: r.company,
     raw: r.raw || {}
   }));
-  const res = await fetch('/api/periods', {
+
+  setSaveProgress(0, 'Menyiapkan... ');
+  const initRes = await fetch('/api/periods/init', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ year: ticketData.periodYear, month: ticketData.periodMonth, label: ticketData.periodLabel, rows })
+    body: JSON.stringify({ year: ticketData.periodYear, month: ticketData.periodMonth, label: ticketData.periodLabel })
   });
-  if (!res.ok) throw new Error('Gagal menyimpan (' + res.status + ')');
-  return res.json();
+  if (!initRes.ok) { setSaveProgress(null); throw new Error('Gagal inisialisasi (' + initRes.status + ')'); }
+  const { period_id } = await initRes.json();
+
+  for (let i = 0; i < rows.length; i += SAVE_UPLOAD_CHUNK) {
+    const chunk = rows.slice(i, i + SAVE_UPLOAD_CHUNK);
+    const res = await fetch('/api/periods/chunk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period_id, rows: chunk })
+    });
+    if (!res.ok) { setSaveProgress(null); throw new Error('Gagal menyimpan baris (' + res.status + ')'); }
+    setSaveProgress(((i + chunk.length) / rows.length) * 100, 'Menyimpan... ');
+  }
+
+  const finRes = await fetch('/api/periods/finalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ period_id, row_count: rows.length })
+  });
+  if (!finRes.ok) { setSaveProgress(null); throw new Error('Gagal finalisasi (' + finRes.status + ')'); }
+  setSaveProgress(100, 'Selesai! ');
+  setTimeout(() => setSaveProgress(null), 1500);
+  return { ok: true, period_id, row_count: rows.length };
 }
 async function apiLoadPeriod(year, month){
   const res = await fetch(`/api/periods/${year}/${month}`);
@@ -1582,6 +1647,7 @@ function rowsToTicketData(payload){
     byChannel[chan].push({
       category: r.category, escalated: !!r.escalated, date, dateStart, dateOpen, dateEnd,
       detailSubCategory: r.detailSubCategory, subCategoryRaw: r.subCategoryRaw, phone: r.phone,
+      customerEmail: r.customerEmail || '',
       mainCategory: r.mainCategory, customerCategory: r.customerCategory, company: r.company,
       channel: chan, raw: r.raw || {}
     });
@@ -1655,23 +1721,13 @@ async function loadDbPeriodInto(period){
 }
 document.getElementById('btn-load-curr').addEventListener('click', () => loadDbPeriodInto('curr'));
 document.getElementById('btn-load-prev').addEventListener('click', () => loadDbPeriodInto('prev'));
-document.getElementById('btn-delete-period').addEventListener('click', async () => {
-  const sel = document.getElementById('db-period-select');
-  const val = sel.value;
-  if (!val || !val.includes('-')) return;
-  const label = sel.options[sel.selectedIndex].textContent;
-  if (!confirm(`Hapus data "${label}" dari database? Tindakan ini tidak bisa dibatalkan.`)) return;
-  const [year, month] = val.split('-').map(Number);
-  document.getElementById('db-status').textContent = 'Menghapus...';
-  try {
-    const res = await fetch(`/api/periods/${year}/${month}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('status ' + res.status);
-    document.getElementById('db-status').textContent = 'Terhapus ✓ (' + label + ')';
-    refreshPeriodsList();
-  } catch (err) {
-    document.getElementById('db-status').textContent = 'Error: ' + err.message;
-  }
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login.html';
 });
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(data => {
+  if (data && data.email) document.getElementById('whoami').textContent = data.email;
+}).catch(() => {});
 document.getElementById('btn-compare-db').addEventListener('click', async () => {
   const valA = document.getElementById('db-compare-a').value;
   const valB = document.getElementById('db-compare-b').value;

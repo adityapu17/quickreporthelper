@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   date_open TEXT,
   date_end TEXT,
   phone TEXT,
+  customer_email TEXT,
   customer_category TEXT,
   company TEXT,
   raw_json TEXT,
@@ -28,3 +29,18 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tickets_period ON tickets(period_id);
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_email TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL
+);

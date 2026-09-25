@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kelola Database — QuickReportHelper</title>
+<style>
+  :root{ --ink:#16232f; --slate-soft:#6b7a8f; --line:#e2e7ec; --teal:#0f7a6b; --red:#c0392b; }
+  *{box-sizing:border-box;}
+  body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f3f5f7; margin:0; color:var(--ink); }
+  .wrap{ max-width:900px; margin:0 auto; padding:28px 20px 60px; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .topbar a{ color:var(--teal); text-decoration:none; font-size:13.5px; font-weight:600; }
+  h1{ font-size:19px; margin:0 0 4px; }
+  .sub{ font-size:12.5px; color:var(--slate-soft); margin:0 0 20px; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ padding:10px 16px; text-align:left; border-bottom:1px solid var(--line); }
+  th{ font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); background:#fbfcfd; }
+  td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .del-btn{ background:#fdecea; color:var(--red); border:1px solid #f3c9c4; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; }
+  .del-btn:hover{ background:#fbdad6; }
+  .status{ font-size:12.5px; color:var(--slate-soft); padding:12px 16px; }
+  button#btn-logout{ background:none; border:1px solid var(--line); border-radius:6px; padding:6px 12px; font-size:12.5px; cursor:pointer; color:var(--slate-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a href="/">&larr; Kembali ke QuickReportHelper</a>
+    <div style="display:flex; gap:14px; align-items:center;">
+      <a href="/users.html">Kelola User</a>
+      <button id="btn-logout">Logout</button>
+    </div>
+  </div>
+  <h1>Kelola Database</h1>
+  <p class="sub">Semua periode (bulan) yang sudah tersimpan di D1. Hapus periode yang sudah tidak diperlukan dari sini.</p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Periode</th><th class="num">Jumlah Baris</th><th>Terakhir Disimpan</th><th></th></tr></thead>
+      <tbody id="periods-body"><tr><td colspan="4" class="status">Memuat...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<script>
+async function loadPeriods(){
+  const body = document.getElementById('periods-body');
+  try {
+    const res = await fetch('/api/periods');
+    if (!res.ok) throw new Error('status ' + res.status);
+    const periods = await res.json();
+    if (!periods.length){
+      body.innerHTML = '<tr><td colspan="4" class="status">Belum ada data tersimpan.</td></tr>';
+      return;
+    }
+    body.innerHTML = periods.map(p => `
+      <tr>
+        <td>${p.label || (p.month + '/' + p.year)}</td>
+        <td class="num">${p.row_count}</td>
+        <td>${new Date(p.uploaded_at + 'Z').toLocaleString('id-ID')}</td>
+        <td><button class="del-btn" data-year="${p.year}" data-month="${p.month}" data-label="${(p.label||'').replace(/"/g,'&quot;')}">Hapus</button></td>
+      </tr>`).join('');
+    body.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { year, month, label } = btn.dataset;
+        if (!confirm(`Hapus data "${label}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+        btn.disabled = true; btn.textContent = 'Menghapus...';
+        try {
+          const res = await fetch(`/api/periods/${year}/${month}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error('status ' + res.status);
+          loadPeriods();
+        } catch (err) {
+          alert('Gagal menghapus: ' + err.message);
+          btn.disabled = false; btn.textContent = 'Hapus';
+        }
+      });
+    });
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="4" class="status">Gagal memuat: ${err.message}</td></tr>`;
+  }
+}
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login.html';
+});
+loadPeriods();
+</script>
+</body>
+</html>

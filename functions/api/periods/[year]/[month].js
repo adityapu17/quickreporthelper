@@ -17,6 +17,7 @@ export async function onRequestGet(context) {
     dateOpen: t.date_open,
     dateEnd: t.date_end,
     phone: t.phone,
+    customerEmail: t.customer_email,
     customerCategory: t.customer_category,
     company: t.company,
     raw: t.raw_json ? JSON.parse(t.raw_json) : {}

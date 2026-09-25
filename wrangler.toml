@@ -5,3 +5,8 @@ compatibility_date = "2026-09-24"
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "quickreporthelper-db"
+database_id = "e64dfae8-b024-4b3c-b799-2f2e4463e553"

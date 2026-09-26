@@ -69,3 +69,11 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT DEFAULT (datetime('now')),
   expires_at TEXT NOT NULL
 );
+
+-- Column-name overrides: lets Dit remap which Excel/CSV header each parser
+-- looks for, in case a source file's column layout changes later. Missing
+-- key = use the built-in default (see FIELD_DEFAULTS in public/index.html).
+CREATE TABLE IF NOT EXISTS column_config (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);

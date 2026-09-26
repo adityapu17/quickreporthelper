@@ -25,7 +25,7 @@
   .header-account{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--slate-soft); white-space:nowrap; padding-top:2px;}
   .header-account button{background:none; border:1px solid var(--line); border-radius:6px; padding:5px 11px; font-size:12px; cursor:pointer; color:var(--slate); font-family:var(--sans);}
   .header-account button:hover{background:var(--paper);}
-  .app-tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:0;}
+  .app-tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); background:var(--card); padding:0 32px;}
   .app-tabs a{
     padding:9px 16px; font-size:12.5px; font-weight:600; text-decoration:none; color:var(--slate-soft);
     border-bottom:2px solid transparent; margin-bottom:-1px; font-family:var(--sans);
@@ -60,7 +60,10 @@
   .empty-state{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:36px; text-align:center; color:var(--slate-soft); font-size:13.5px;}
 
   section.result{display:none;}
-  section.result.show{display:block;}
+  section.result.show{display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start;}
+  section.result.show .card{margin-bottom:0; max-width:none; width:100%;}
+  section.result.show .card.wide{grid-column:1 / -1;}
+  @media (max-width:900px){ section.result.show{display:block;} section.result.show .card{margin-bottom:22px;} }
   .card{background:var(--card); border:1px solid var(--line); border-radius:10px; margin-bottom:22px; overflow:hidden; max-width:640px; box-shadow:0 1px 2px rgba(20,30,45,.04);}
   .card h2{margin:0; padding:14px 20px; font-size:14.5px; font-weight:700; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; background:#fbfcfd; font-family:var(--heading);}
   table{width:100%; border-collapse:collapse; font-size:14px;}
@@ -109,6 +112,12 @@
     <button id="btn-logout">Logout</button>
   </div>
 </header>
+
+<div class="app-tabs">
+  <a href="/" class="active">Data Tersimpan</a>
+  <a href="/database">Kelola Database</a>
+  <a href="/users">Kelola User</a>
+</div>
 
 <div class="wrap">
 
@@ -163,12 +172,6 @@
     <button class="ghost" id="btn-copy-all" disabled>Copy semua tabel (text)</button>
     <button class="ghost" id="btn-capture-mode" disabled>Mode Capture</button>
     <span class="status" id="status-line"></span>
-  </div>
-
-  <div class="app-tabs" style="margin-bottom:18px;">
-    <a href="/" class="active">Data Tersimpan</a>
-    <a href="/database">Kelola Database</a>
-    <a href="/users">Kelola User</a>
   </div>
 
   <div class="card" id="db-panel" style="max-width:820px;">
@@ -285,11 +288,11 @@
         <tbody id="top-keluhan-body"></tbody>
       </table>
     </div>
-    <div class="card" style="max-width:820px;">
+    <div class="card wide">
       <h2>Interaksi Harian <span id="daily-channel-label"></span></h2>
       <div id="daily-chart-container"></div>
     </div>
-    <div class="card" style="max-width:820px;" id="secondary-chart-card">
+    <div class="card wide" id="secondary-chart-card">
       <h2 id="secondary-chart-title"></h2>
       <div id="secondary-chart-container"></div>
     </div>
@@ -303,7 +306,7 @@
       <div class="narrative" id="ht-narrative"></div>
     </div>
 
-    <div class="card" id="ht-sample-card">
+    <div class="card wide" id="ht-sample-card">
       <h2>Sample Handling Tercepat &amp; Terlama <span id="ht-sample-channel-label"></span></h2>
       <table>
         <thead><tr><th></th><th>Date</th><th>Time</th><th>Kategori</th><th class="num">Duration (min)</th><th>PIC</th></tr></thead>
@@ -326,7 +329,7 @@
       <div id="ru-pemungut-container" style="padding:16px 20px; font-size:14px;"></div>
     </div>
 
-    <div class="card" style="max-width:820px;">
+    <div class="card wide">
       <h2>Grafik Interaksi Harian E-Meterai &amp; Digital Sign</h2>
       <div id="ru-daily-chart-container"></div>
     </div>
@@ -1602,8 +1605,41 @@ function setSaveProgress(pct, label){
   lbl.textContent = (label || '') + Math.round(pct) + '%';
 }
 const SAVE_UPLOAD_CHUNK = 250; // rows per HTTP call to /api/periods/chunk
-async function apiSavePeriod(ticketData){
-  const rows = aggregateAllChannels(ticketData).map(r => ({
+function flattenGaps(gapsByChannel){
+  const out = [];
+  Object.entries(gapsByChannel || {}).forEach(([chan, arr]) => {
+    (arr || []).forEach(g => out.push({
+      channel: chan, gapMin: g.gapMin,
+      date: g.date instanceof Date ? g.date.toISOString() : null
+    }));
+  });
+  return out;
+}
+function flattenVoice(records){
+  return (records || []).map(r => ({
+    event: r.event, talktimeMin: r.talktimeMin,
+    date: r.date instanceof Date ? r.date.toISOString() : null
+  }));
+}
+async function uploadChunks(period_id, kind, items){
+  for (let i = 0; i < items.length; i += SAVE_UPLOAD_CHUNK) {
+    const chunk = items.slice(i, i + SAVE_UPLOAD_CHUNK);
+    const res = await fetch('/api/periods/chunk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period_id, kind, rows: chunk })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(`Gagal menyimpan data ${kind} (${res.status}): ` + (errData.error || 'unknown'));
+    }
+  }
+}
+// bundle: { ticket, detail, voice } — the same shape as curr/prev in this app.
+// detail = gapsByChannel object (or null), voice = array of call records (or null).
+async function apiSavePeriod(bundle){
+  const ticketData = bundle.ticket;
+  const ticketRows = aggregateAllChannels(ticketData).map(r => ({
     channel: r.channel,
     category: r.category,
     mainCategory: r.mainCategory,
@@ -1619,6 +1655,10 @@ async function apiSavePeriod(ticketData){
     company: r.company,
     raw: r.raw || {}
   }));
+  const gapRows = flattenGaps(bundle.detail);
+  const voiceRows = flattenVoice(bundle.voice);
+  const totalItems = ticketRows.length + gapRows.length + voiceRows.length || 1;
+  let done = 0;
 
   setSaveProgress(0, 'Menyiapkan... ');
   const initRes = await fetch('/api/periods/init', {
@@ -1633,25 +1673,60 @@ async function apiSavePeriod(ticketData){
   }
   const { period_id } = await initRes.json();
 
-  for (let i = 0; i < rows.length; i += SAVE_UPLOAD_CHUNK) {
-    const chunk = rows.slice(i, i + SAVE_UPLOAD_CHUNK);
+  for (let i = 0; i < ticketRows.length; i += SAVE_UPLOAD_CHUNK) {
+    const chunk = ticketRows.slice(i, i + SAVE_UPLOAD_CHUNK);
     const res = await fetch('/api/periods/chunk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ period_id, rows: chunk })
+      body: JSON.stringify({ period_id, kind: 'ticket', rows: chunk })
     });
     if (!res.ok) {
       setSaveProgress(null);
       const errData = await res.json().catch(() => ({}));
-      throw new Error('Gagal menyimpan baris (' + res.status + '): ' + (errData.error || 'unknown'));
+      throw new Error('Gagal menyimpan baris ticket (' + res.status + '): ' + (errData.error || 'unknown'));
     }
-    setSaveProgress(((i + chunk.length) / rows.length) * 100, 'Menyimpan... ');
+    done += chunk.length;
+    setSaveProgress((done / totalItems) * 100, 'Menyimpan ticket... ');
+  }
+
+  if (gapRows.length){
+    for (let i = 0; i < gapRows.length; i += SAVE_UPLOAD_CHUNK) {
+      const chunk = gapRows.slice(i, i + SAVE_UPLOAD_CHUNK);
+      const res = await fetch('/api/periods/chunk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period_id, kind: 'gap', rows: chunk })
+      });
+      if (!res.ok) {
+        setSaveProgress(null);
+        const errData = await res.json().catch(() => ({}));
+        throw new Error('Gagal menyimpan data response time (' + res.status + '): ' + (errData.error || 'unknown'));
+      }
+      done += chunk.length;
+      setSaveProgress((done / totalItems) * 100, 'Menyimpan response time... ');
+    }
+  }
+
+  if (voiceRows.length){
+    for (let i = 0; i < voiceRows.length; i += SAVE_UPLOAD_CHUNK) {
+      const chunk = voiceRows.slice(i, i + SAVE_UPLOAD_CHUNK);
+      const res = await fetch('/api/periods/chunk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period_id, kind: 'voice', rows: chunk })
+      });
+      if (!res.ok) {
+        setSaveProgress(null);
+        const errData = await res.json().catch(() => ({}));
+        throw new Error('Gagal menyimpan data voice (' + res.status + '): ' + (errData.error || 'unknown'));
+      }
+      done += chunk.length;
+      setSaveProgress((done / totalItems) * 100, 'Menyimpan voice... ');
+    }
   }
 
   const finRes = await fetch('/api/periods/finalize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ period_id, row_count: rows.length })
+    body: JSON.stringify({ period_id, row_count: ticketRows.length })
   });
   if (!finRes.ok) {
     setSaveProgress(null);
@@ -1660,7 +1735,7 @@ async function apiSavePeriod(ticketData){
   }
   setSaveProgress(100, 'Selesai! ');
   setTimeout(() => setSaveProgress(null), 1500);
-  return { ok: true, period_id, row_count: rows.length };
+  return { ok: true, period_id, row_count: ticketRows.length };
 }
 async function apiLoadPeriod(year, month){
   const res = await fetch(`/api/periods/${year}/${month}`);
@@ -1685,6 +1760,20 @@ function rowsToTicketData(payload){
     });
   });
   return { byChannel, periodLabel: payload.label, periodYear: payload.year, periodMonth: payload.month };
+}
+// Reconstructs the same gapsByChannel shape parseDetailFile() produces.
+function rowsToGapsByChannel(gaps){
+  const gapsByChannel = {};
+  (gaps || []).forEach(g => {
+    if (!gapsByChannel[g.channel]) gapsByChannel[g.channel] = [];
+    gapsByChannel[g.channel].push({ gapMin: g.gapMin, date: g.date ? new Date(g.date) : null });
+  });
+  return Object.keys(gapsByChannel).length ? gapsByChannel : null;
+}
+// Reconstructs the same records shape parseVoiceFile() produces.
+function rowsToVoiceRecords(voiceRecords){
+  if (!voiceRecords || !voiceRecords.length) return null;
+  return voiceRecords.map(v => ({ event: v.event, talktimeMin: v.talktimeMin, date: v.date ? new Date(v.date) : null }));
 }
 async function refreshPeriodsList(){
   const sel = document.getElementById('db-period-select');
@@ -1712,7 +1801,7 @@ document.getElementById('btn-save-curr').addEventListener('click', async () => {
   btn.disabled = true;
   document.getElementById('db-status').textContent = 'Menyimpan...';
   try {
-    await apiSavePeriod(curr.ticket);
+    await apiSavePeriod(curr);
     document.getElementById('db-status').textContent = 'Tersimpan ✓ (' + curr.ticket.periodLabel + ')';
     refreshPeriodsList();
   } catch (err) {
@@ -1725,7 +1814,7 @@ document.getElementById('btn-save-prev').addEventListener('click', async () => {
   btn.disabled = true;
   document.getElementById('db-status').textContent = 'Menyimpan...';
   try {
-    await apiSavePeriod(prev.ticket);
+    await apiSavePeriod(prev);
     document.getElementById('db-status').textContent = 'Tersimpan ✓ (' + prev.ticket.periodLabel + ')';
     refreshPeriodsList();
   } catch (err) {
@@ -1740,9 +1829,11 @@ async function loadDbPeriodInto(period){
   document.getElementById('db-status').textContent = 'Memuat...';
   try {
     const payload = await apiLoadPeriod(year, month);
-    const ticketData = rowsToTicketData(payload);
-    (period === 'curr' ? curr : prev).ticket = ticketData;
-    document.getElementById('db-status').textContent = 'Dimuat ✓ (' + ticketData.periodLabel + ')';
+    const target = period === 'curr' ? curr : prev;
+    target.ticket = rowsToTicketData(payload);
+    target.detail = rowsToGapsByChannel(payload.gaps);
+    target.voice = rowsToVoiceRecords(payload.voiceRecords);
+    document.getElementById('db-status').textContent = 'Dimuat ✓ (' + target.ticket.periodLabel + ')';
     document.getElementById(period === 'curr' ? 'btn-save-curr' : 'btn-save-prev').disabled = false;
     updateChannelOptions();
     if (period === 'prev') render();
@@ -1772,7 +1863,11 @@ document.getElementById('btn-compare-db').addEventListener('click', async () => 
     // Newer period as "curr", older as "prev" (by year-month) so growth reads naturally.
     const [newer, older] = (ya*100+ma) >= (yb*100+mb) ? [payloadA, payloadB] : [payloadB, payloadA];
     curr.ticket = rowsToTicketData(newer);
+    curr.detail = rowsToGapsByChannel(newer.gaps);
+    curr.voice = rowsToVoiceRecords(newer.voiceRecords);
     prev.ticket = rowsToTicketData(older);
+    prev.detail = rowsToGapsByChannel(older.gaps);
+    prev.voice = rowsToVoiceRecords(older.voiceRecords);
     document.getElementById('btn-save-curr').disabled = false;
     document.getElementById('btn-save-prev').disabled = false;
     document.getElementById('db-status').textContent = `Compare ✓ ${older.label} vs ${newer.label}`;

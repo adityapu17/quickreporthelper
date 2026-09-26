@@ -14,6 +14,8 @@ export async function onRequestPost(context) {
     if (existing) {
       periodId = existing.id;
       await env.DB.prepare('DELETE FROM tickets WHERE period_id = ?').bind(periodId).run();
+      await env.DB.prepare('DELETE FROM response_gaps WHERE period_id = ?').bind(periodId).run();
+      await env.DB.prepare('DELETE FROM voice_records WHERE period_id = ?').bind(periodId).run();
       await env.DB.prepare('UPDATE periods SET label = ?, row_count = 0 WHERE id = ?')
         .bind(label || null, periodId).run();
     } else {

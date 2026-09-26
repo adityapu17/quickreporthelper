@@ -27,8 +27,33 @@ CREATE TABLE IF NOT EXISTS tickets (
   raw_json TEXT,
   FOREIGN KEY(period_id) REFERENCES periods(id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_tickets_period ON tickets(period_id);
+
+-- Response-time gaps, one row per IN->OUT reply pair, from the "Detail
+-- Interaction (non-voice)" file. Powers the Response Time (Email/WhatsApp)
+-- calculations when loading a saved period from the database.
+CREATE TABLE IF NOT EXISTS response_gaps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  period_id INTEGER NOT NULL,
+  channel TEXT,
+  gap_min REAL,
+  gap_date TEXT,
+  FOREIGN KEY(period_id) REFERENCES periods(id)
+);
+CREATE INDEX IF NOT EXISTS idx_gaps_period ON response_gaps(period_id);
+
+-- Voice call records from the "Detail Interaction Voice" (CDR) file. Powers
+-- AHT / Call Offered / Abandoned / N-FCR for the Voice channel when loading
+-- a saved period from the database.
+CREATE TABLE IF NOT EXISTS voice_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  period_id INTEGER NOT NULL,
+  event TEXT,
+  talktime_min REAL,
+  call_date TEXT,
+  FOREIGN KEY(period_id) REFERENCES periods(id)
+);
+CREATE INDEX IF NOT EXISTS idx_voice_period ON voice_records(period_id);
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

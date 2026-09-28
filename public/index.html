@@ -18,6 +18,34 @@
     --heading: "Poppins", "Segoe UI", Arial, sans-serif;
   }
   *{box-sizing:border-box;}
+  @keyframes pageFade{ from{opacity:0;} to{opacity:1;} }
+  @keyframes cardIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes popIn{ from{opacity:0; transform:translateY(-4px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  body{ animation:pageFade .2s ease; }
+  button, select, input, a{ transition:background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease, box-shadow .15s ease; }
+  button:active{ transform:scale(.96); }
+  select:focus, input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(15,122,107,.12); }
+  section.result.show .card{ animation:cardIn .25s ease both; }
+  .fade-in{ animation:cardIn .2s ease both; }
+  .bot-helper{ position:relative; }
+  .bot-helper button{
+    background:none; border:1px solid var(--line); border-radius:50%; width:30px; height:30px;
+    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; line-height:1;
+  }
+  .bot-helper button:hover{ background:var(--paper); border-color:var(--teal); }
+  .bot-bubble{
+    position:absolute; top:calc(100% + 10px); right:0; width:270px;
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
+    font-size:12.5px; line-height:1.55; color:var(--ink); box-shadow:0 6px 20px rgba(20,30,45,.14);
+    display:none; z-index:30; text-align:left;
+  }
+  .bot-bubble.show{ display:block; animation:popIn .18s ease; }
+  .bot-bubble::after{
+    content:''; position:absolute; top:-6px; right:12px; width:11px; height:11px;
+    background:#fff; border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg);
+  }
+  .bot-bubble b{ display:block; margin-bottom:4px; color:var(--teal); }
   body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-feature-settings:"tnum" 1; -webkit-font-smoothing:antialiased;}
   header{padding:26px 32px 18px; border-bottom:1px solid var(--line); background:var(--card); display:flex; align-items:flex-start; justify-content:space-between; gap:20px;}
   header h1{margin:0 0 4px; font-size:20px; letter-spacing:-0.01em; font-weight:700; font-family:var(--heading);}
@@ -96,6 +124,10 @@
     white-space:nowrap;
   }
   .copy-table-btn:hover, .copy-image-btn:hover{ background: #d5ece7; }
+  @keyframes botFloat{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);} }
+  .bot-helper button{ border:none; border-radius:10px; width:36px; height:36px; padding:2px; background:none; }
+  .bot-helper button:hover{ background:var(--paper); border:none; }
+  .bot-helper button img{ width:100%; height:100%; object-fit:contain; display:block; animation:botFloat 3.2s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -104,10 +136,16 @@
 <header>
   <div>
     <h1>Report Generator</h1>
-    <p>Parameter Indicator &amp; Kategori Produk — dari 3 file raw (Ticket, Detail Interaction, Detail Interaction Voice) per periode</p>
   </div>
   <div class="header-account">
     <span id="whoami"></span>
+    <div class="bot-helper">
+      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/robot.png" alt="Bantuan"></button>
+      <div class="bot-bubble" id="bot-bubble">
+        <b>Cara pakai halaman ini</b>
+        Upload 3 file bulan berjalan (Ticket, Detail Interaction, Detail Interaction Voice) di kotak kiri atas — bulan lalu (kanan) opsional, buat lihat growth. Setelah itu laporan per channel atau ringkasan otomatis muncul di bawah. Bisa juga simpan ke database, atau muat/compare data bulan yang sudah tersimpan tanpa upload ulang.
+      </div>
+    </div>
     <button id="btn-logout">Logout</button>
   </div>
 </header>
@@ -205,8 +243,7 @@
   </div>
 
   <div class="empty-state" id="empty-state">
-    Upload minimal ketiga file bulan berjalan (Ticket, Detail Interaction, Detail Interaction Voice).
-    Channel Voice / Email / WhatsApp Business / WhatsApp Group dideteksi otomatis dari kolom <code>channel_name</code>.
+    Belum ada data — upload file di atas, atau muat dari database.
   </div>
 
   <div id="extra-analysis" style="display:none;">
@@ -226,8 +263,7 @@
           <thead><tr><th>#</th><th>Kategori</th><th class="num">Jumlah</th></tr></thead>
           <tbody id="filter-result-body"></tbody>
         </table>
-        <div class="narrative" id="filter-company-note" style="display:none;">Kolom company auto-terdeteksi dari header yang mengandung kata "company" — cek dulu apakah kolomnya benar.</div>
-      </div>
+        </div>
     </div>
 
     <div class="card" style="max-width:820px;">
@@ -379,7 +415,13 @@ function readSheet(arrayBuffer){
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
   if (!rows.length) throw new Error('Sheet kosong.');
   const headers = rows[0].map(h => (h || '').toString().trim());
-  return { headers, rows: rows.slice(1) };
+  // Excel's leading apostrophe (its "force this cell to be text" marker) can
+  // end up as a literal character in the parsed value — strip it so a value
+  // like "'Pemungut" matches cleanly instead of silently failing comparisons.
+  const dataRows = rows.slice(1).map(row => row.map(cell =>
+    typeof cell === 'string' && cell.charAt(0) === "'" ? cell.slice(1) : cell
+  ));
+  return { headers, rows: dataRows };
 }
 // ---- Column-name configuration: lets the header names each parser looks
 // for be remapped from a settings page, in case a source file's column
@@ -772,7 +814,7 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${dsColor};margin-right:5px;"></span>Digital Sign</span>
     </div>
     <div style="padding:4px 20px 4px; overflow-x:auto;">${svg}</div>
-    ${rowsByDayProduct ? '<div id="stacked-drilldown" style="padding:0 20px 20px; font-size:12.5px; color:var(--slate-soft);">Klik salah satu bagian bar (E-Meterai/Digital Sign) untuk lihat top kategori di tanggal itu.</div>' : ''}`;
+    ${rowsByDayProduct ? '<div id="stacked-drilldown" style="padding:0 20px 20px; font-size:12.5px; color:var(--slate-soft);"></div>' : ''}`;
 
   if (rowsByDayProduct){
     container.querySelectorAll('rect[data-date-key]').forEach(el => {
@@ -782,11 +824,12 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
         const rows = rowsByDayProduct[dateKey + '|' + product] || [];
         const top = topCategoriesFor(rows, 10);
         const dd = document.getElementById('stacked-drilldown');
-        if (!top.length){ dd.innerHTML = `<b>${dateKey} — ${product}</b>: tidak ada data kategori.`; return; }
+        if (!top.length){ dd.innerHTML = `<b>${dateKey} — ${product}</b>: tidak ada data kategori.`; fadeInEl(dd); return; }
         dd.innerHTML = `<div style="font-weight:700; color:var(--ink); margin-bottom:6px;">Top Kategori — ${dateKey} · ${product} (${rows.length} interaksi)</div>` +
           '<table style="width:100%; max-width:520px;"><tbody>' +
           top.map((c,i) => `<tr><td style="padding:3px 8px 3px 0; font-family:var(--sans);">${i+1}. ${c.label}</td><td class="num" style="padding:3px 0; font-family:var(--mono); text-align:right;">${c.count}</td></tr>`).join('') +
           '</tbody></table>';
+        fadeInEl(dd);
       });
     });
   }
@@ -876,6 +919,12 @@ function computeHandlingTime(rows){
 }
 
 // ---- Population bucketing for a start->end time gap, <3min vs >=3min ----
+function fadeInEl(el){
+  if (!el) return;
+  el.classList.remove('fade-in');
+  void el.offsetWidth; // force reflow so the animation replays
+  el.classList.add('fade-in');
+}
 function computePopulationBuckets(rows, startField, endField){
   const items = (rows || [])
     .filter(r => r[startField] instanceof Date && r[endField] instanceof Date)
@@ -1063,7 +1112,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
       </div>
     </div>
     <div style="padding:4px 20px 4px; overflow-x:auto;">${svg}</div>
-    ${rowsByDay ? '<div id="daily-drilldown" style="padding:0 20px 20px; font-size:12.5px; color:var(--slate-soft);">Klik salah satu bar untuk lihat top kategori di tanggal itu.</div>' : ''}`;
+    ${rowsByDay ? '<div id="daily-drilldown" style="padding:0 20px 20px; font-size:12.5px; color:var(--slate-soft);"></div>' : ''}`;
 
   if (rowsByDay){
     container.querySelectorAll('[data-date-key]').forEach(el => {
@@ -1074,12 +1123,14 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
         const dd = document.getElementById('daily-drilldown');
         if (!top.length){
           dd.innerHTML = `<b>${key}</b>: tidak ada data kategori.`;
+          fadeInEl(dd);
           return;
         }
         dd.innerHTML = `<div style="font-weight:700; color:var(--ink); margin-bottom:6px;">Top Kategori — ${key} (${rows.length} interaksi)</div>` +
           '<table style="width:100%; max-width:520px;"><tbody>' +
           top.map((c,i) => `<tr><td style="padding:3px 8px 3px 0; font-family:var(--sans);">${i+1}. ${c.label}</td><td class="num" style="padding:3px 0; font-family:var(--mono); text-align:right;">${c.count}</td></tr>`).join('') +
           '</tbody></table>';
+        fadeInEl(dd);
       });
     });
   }
@@ -1986,8 +2037,6 @@ function refreshFilterValueOptions(){
   const type = document.getElementById('filter-type-select').value;
   const valSel = document.getElementById('filter-value-select');
   const dateSel = document.getElementById('filter-date-select');
-  const note = document.getElementById('filter-company-note');
-  note.style.display = type === 'company' ? '' : 'none';
   if (!curr.ticket){ valSel.innerHTML = '<option>—</option>'; return; }
   const rows = aggregateAllChannels(curr.ticket);
   let values = [];
@@ -2020,6 +2069,7 @@ function renderFilterResult(){
   const top = topCategoriesFor(scoped, 10);
   if (!top.length){ body.innerHTML = '<tr><td colspan="3" class="label">Tidak ada data.</td></tr>'; return; }
   body.innerHTML = top.map((c,i) => `<tr><td class="label">${i+1}</td><td>${c.label}</td><td class="num">${c.count}</td></tr>`).join('');
+  fadeInEl(body);
 }
 document.getElementById('filter-type-select').addEventListener('change', refreshFilterValueOptions);
 document.getElementById('filter-value-select').addEventListener('change', renderFilterResult);
@@ -2077,6 +2127,14 @@ document.getElementById('btn-capture-mode').addEventListener('click', () => {
 });
 document.getElementById('btn-exit-capture').addEventListener('click', () => {
   document.body.classList.remove('capture-mode');
+});
+document.getElementById('btn-bot').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('bot-bubble').classList.toggle('show');
+});
+document.addEventListener('click', (e) => {
+  const bubble = document.getElementById('bot-bubble');
+  if (bubble.classList.contains('show') && !e.target.closest('.bot-helper')) bubble.classList.remove('show');
 });
 </script>
 

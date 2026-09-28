@@ -28,6 +28,35 @@
   .del-btn{ background:#fdecea; color:var(--red); border:1px solid #f3c9c4; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; }
   .del-btn:hover{ background:#fbdad6; }
   .status{ font-size:12.5px; color:var(--slate-soft); padding:12px 16px; }
+  @keyframes pageFade{ from{opacity:0;} to{opacity:1;} }
+  @keyframes cardIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes popIn{ from{opacity:0; transform:translateY(-4px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);} }
+  body{ animation:pageFade .2s ease; }
+  button, select, input, a{ transition:background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease; }
+  button:active{ transform:scale(.96); }
+  .card{ animation:cardIn .25s ease both; }
+  .bot-helper{ position:relative; }
+  .bot-helper button{
+    background:none; border:1px solid var(--line); border-radius:50%; width:30px; height:30px;
+    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; line-height:1;
+  }
+  .bot-helper button:hover{ background:var(--paper); border-color:var(--teal); }
+  .bot-bubble{
+    position:absolute; top:calc(100% + 10px); right:0; width:260px;
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
+    font-size:12.5px; line-height:1.55; color:var(--ink); box-shadow:0 6px 20px rgba(20,30,45,.14);
+    display:none; z-index:30; text-align:left;
+  }
+  .bot-bubble.show{ display:block; animation:popIn .18s ease; }
+  .bot-bubble::after{
+    content:''; position:absolute; top:-6px; right:12px; width:11px; height:11px;
+    background:#fff; border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg);
+  }
+  .bot-bubble b{ display:block; margin-bottom:4px; color:var(--teal); }
+  @keyframes botFloat{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);} }
+  .bot-helper button{ border:none; border-radius:10px; width:36px; height:36px; padding:2px; background:none; }
+  .bot-helper button:hover{ background:var(--paper); border:none; }
+  .bot-helper button img{ width:100%; height:100%; object-fit:contain; display:block; animation:botFloat 3.2s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -35,6 +64,13 @@
   <h1>Kelola Database</h1>
   <div class="header-account">
     <span id="whoami"></span>
+    <div class="bot-helper">
+      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/robot.png" alt="Bantuan"></button>
+      <div class="bot-bubble" id="bot-bubble">
+        <b>Cara pakai halaman ini</b>
+        Semua periode (bulan) yang sudah tersimpan di database ada di tabel bawah. Klik "Hapus" buat buang data periode yang gak diperlukan lagi.
+      </div>
+    </div>
     <button id="btn-logout">Logout</button>
   </div>
 </header>
@@ -45,7 +81,6 @@
   <a href="/config">Konfigurasi Kolom</a>
 </div>
 <div class="wrap">
-  <p class="sub">Semua periode (bulan) yang sudah tersimpan di D1. Hapus periode yang sudah tidak diperlukan dari sini.</p>
   <div class="card">
     <table>
       <thead><tr><th>Periode</th><th class="num">Jumlah Baris</th><th>Terakhir Disimpan</th><th></th></tr></thead>
@@ -54,6 +89,14 @@
   </div>
 </div>
 <script>
+document.getElementById('btn-bot').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('bot-bubble').classList.toggle('show');
+});
+document.addEventListener('click', (e) => {
+  const bubble = document.getElementById('bot-bubble');
+  if (bubble.classList.contains('show') && !e.target.closest('.bot-helper')) bubble.classList.remove('show');
+});
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(data => {
   if (data && data.email) document.getElementById('whoami').textContent = data.email;
 }).catch(() => {});

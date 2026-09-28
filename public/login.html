@@ -29,13 +29,24 @@
   button:disabled{opacity:.6; cursor:default;}
   .err{color:#c0392b; font-size:12.5px; margin-top:10px; min-height:16px;}
   .badge{display:inline-block; background:#e8f5f2; color:#0f7a6b; font-size:11px; font-weight:700; padding:3px 8px; border-radius:5px; margin-bottom:10px;}
+  @keyframes boxIn{ from{opacity:0; transform:translateY(10px) scale(.98);} to{opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-5px);} 75%{transform:translateX(5px);} }
+  .box{ animation:boxIn .3s ease both; }
+  .box.shake{ animation:shake .3s ease; }
+  input, button{ transition:border-color .15s ease, box-shadow .15s ease, transform .1s ease, background-color .15s ease, opacity .15s ease; }
+  input:focus{ outline:none; border-color:#0f7a6b; box-shadow:0 0 0 3px rgba(15,122,107,.12); }
+  button:active:not(:disabled){ transform:scale(.97); }
+  button.loading::before{ content:''; display:inline-block; width:12px; height:12px; margin-right:8px; vertical-align:-2px;
+    border:2px solid rgba(255,255,255,.5); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+  .err{ transition:opacity .2s ease; }
 </style>
 </head>
 <body>
   <form class="box" id="auth-form">
     <div id="badge-wrap"></div>
     <h1 id="title">QuickReportHelper</h1>
-    <p id="subtitle">Memuat...</p>
+    <p id="subtitle"></p>
     <label>Email</label>
     <input type="email" id="email" required autofocus>
     <label>Password</label>
@@ -58,11 +69,11 @@
       } catch (e) { bootstrapMode = false; }
       if (bootstrapMode){
         document.getElementById('badge-wrap').innerHTML = '<span class="badge">SETUP PERTAMA KALI</span>';
-        document.getElementById('subtitle').textContent = 'Belum ada akun — buat akun admin pertama untuk mulai.';
+        document.getElementById('subtitle').textContent = 'Buat akun admin pertama.';
         document.getElementById('confirm-wrap').style.display = '';
         document.getElementById('btn').textContent = 'Buat Akun & Masuk';
       } else {
-        document.getElementById('subtitle').textContent = 'Internal tool — masuk dengan akun kamu.';
+        document.getElementById('subtitle').textContent = '';
         document.getElementById('btn').textContent = 'Masuk';
       }
     }
@@ -80,7 +91,7 @@
         if (password !== confirm){ err.textContent = 'Password tidak sama.'; return; }
       }
 
-      btn.disabled = true; btn.textContent = 'Memproses...';
+      btn.disabled = true; btn.classList.add('loading'); btn.textContent = 'Memproses...';
       try {
         if (bootstrapMode){
           const createRes = await fetch('/api/users', {
@@ -101,6 +112,8 @@
         window.location.href = '/';
       } catch (ex) {
         err.textContent = ex.message;
+        const boxEl = document.getElementById('auth-form'); boxEl.classList.remove('shake'); void boxEl.offsetWidth; boxEl.classList.add('shake');
+        btn.classList.remove('loading');
         btn.disabled = false; btn.textContent = bootstrapMode ? 'Buat Akun & Masuk' : 'Masuk';
       }
     });

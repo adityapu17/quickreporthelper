@@ -45,11 +45,11 @@
     position:absolute; top:calc(100% + 10px); right:0; width:260px;
     background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
     font-size:12.5px; line-height:1.55; color:var(--ink); box-shadow:0 6px 20px rgba(20,30,45,.14);
-    display:none; z-index:30; text-align:left;
+    display:none; z-index:30; text-align:left; white-space:normal; overflow-wrap:break-word;
   }
   .bot-bubble.show{ display:block; animation:popIn .18s ease; }
   .bot-bubble::after{
-    content:''; position:absolute; top:-6px; right:12px; width:11px; height:11px;
+    content:''; position:absolute; top:-6px; right:13px; width:11px; height:11px;
     background:#fff; border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg);
   }
   .bot-bubble b{ display:block; margin-bottom:4px; color:var(--teal); }

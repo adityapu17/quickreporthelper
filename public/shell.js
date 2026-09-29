@@ -21,7 +21,7 @@
   aside.className = 'sidebar';
   aside.setAttribute('aria-label', 'Menu utama');
   aside.innerHTML =
-    '<div class="sb-brand"><div class="sb-title">QuickReportHelper</div>' +
+    '<div class="sb-brand"><div class="sb-title">Intan <span style="font-weight:500; color:var(--slate-soft,#6b7a8f); font-size:10.5px;">Interaction Analyzer</span></div>' +
     '<div class="sb-sub">PERURI Digital Contact Center</div></div>' +
     '<div class="sb-label">Menu</div>' +
     '<nav class="sb-nav">' +

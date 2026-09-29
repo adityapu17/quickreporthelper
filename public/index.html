@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monthly Report Interaction — QuickReportHelper</title>
+<title>Monthly Report Interaction — Intan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57,7 +57,9 @@
   .app-tabs a{
     padding:9px 16px; font-size:12.5px; font-weight:600; text-decoration:none; color:var(--slate-soft);
     border-bottom:2px solid transparent; margin-bottom:-1px; font-family:var(--sans);
+    display:inline-block; transition:color .15s ease, border-color .15s ease, transform .1s ease;
   }
+  .app-tabs a:active{ transform:scale(.96); }
   .app-tabs a:hover{color:var(--ink);}
   .app-tabs a.active{color:var(--teal); border-bottom-color:var(--teal);}
   .wrap{max-width:1100px; margin:0 auto; padding:22px 32px 64px;}

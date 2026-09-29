@@ -29,8 +29,9 @@ body.has-sidebar{ padding-left:var(--sidebar-w); }
   padding:10px 12px; border-radius:8px; text-decoration:none;
   font-family:var(--sans,"Segoe UI","Poppins",Arial,sans-serif); font-size:13.5px; font-weight:600; line-height:1.25;
   color:var(--slate,#425066);
-  transition:background-color .15s ease, color .15s ease;
+  transition:background-color .15s ease, color .15s ease, transform .1s ease;
 }
+.sb-link:active{ transform:scale(.97); }
 .sb-link svg{ flex:none; width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
 .sb-link:hover{ background:var(--paper,#f6f8fa); color:var(--ink,#1b2430); }
 .sb-link.active{ background:var(--teal-soft,#e4f2ef); color:var(--teal,#0f7a6b); }

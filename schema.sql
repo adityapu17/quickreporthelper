@@ -77,3 +77,30 @@ CREATE TABLE IF NOT EXISTS column_config (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+
+-- "Summary Interaction" (formerly the standalone dcc-data-source app): manual
+-- monthly interaction totals per channel and per product. Table/column names
+-- are kept identical to the old dcc-data-source-db so existing rows can be
+-- imported as-is (see README/migration note).
+CREATE TABLE IF NOT EXISTS channel_records (
+  id TEXT PRIMARY KEY,
+  bulan INTEGER NOT NULL,
+  tahun INTEGER NOT NULL,
+  channel TEXT NOT NULL,
+  totalInteraksi REAL NOT NULL,
+  responseTime REAL,
+  aht REAL,
+  scr REAL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS produk_records (
+  id TEXT PRIMARY KEY,
+  bulan INTEGER NOT NULL,
+  tahun INTEGER NOT NULL,
+  produk TEXT NOT NULL,
+  totalInteraksi REAL NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);

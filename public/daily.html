@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Report Interaction — QuickReportHelper</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script src="/daily-lib.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shell.css">
+<style>
+  :root{
+    --ink:#1b2430; --slate:#425066; --slate-soft:#6b7a8f; --line:#d9e0e8;
+    --paper:#f6f8fa; --card:#ffffff; --teal:#0f7a6b; --teal-soft:#e4f2ef;
+    --red:#b3432f; --amber:#c98a1d;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "Segoe UI", "Poppins", Arial, sans-serif;
+    --heading: "Poppins", "Segoe UI", Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  @keyframes pageFade{ from{opacity:0;} to{opacity:1;} }
+  @keyframes cardIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes popIn{ from{opacity:0; transform:translateY(-4px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  body{ animation:pageFade .2s ease; margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); }
+  button, select, input, a{ transition:background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease, box-shadow .15s ease; }
+  button:active{ transform:scale(.96); }
+  select:focus, input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(15,122,107,.12); }
+  .fade-in{ animation:cardIn .2s ease both; }
+
+  header{padding:26px 32px 18px; border-bottom:1px solid var(--line); background:var(--card); display:flex; align-items:flex-start; justify-content:space-between; gap:20px;}
+  header h1{margin:0 0 4px; font-size:20px; letter-spacing:-0.01em; font-weight:700; font-family:var(--heading);}
+  .header-account{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--slate-soft); white-space:nowrap; padding-top:2px;}
+  .header-account button{background:none; border:1px solid var(--line); border-radius:6px; padding:5px 11px; font-size:12px; cursor:pointer; color:var(--slate); font-family:var(--sans);}
+  .header-account button:hover{background:var(--paper);}
+  .bot-helper{ position:relative; }
+  .bot-helper button{ border:none; border-radius:10px; width:36px; height:36px; padding:2px; background:none; cursor:pointer; }
+  .bot-helper button:hover{ background:var(--paper); }
+  @keyframes botFloat{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);} }
+  .bot-helper button img{ width:100%; height:100%; object-fit:contain; display:block; animation:botFloat 3.2s ease-in-out infinite; }
+  .bot-bubble{
+    position:absolute; top:calc(100% + 10px); right:0; width:280px;
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
+    font-size:12.5px; line-height:1.55; color:var(--ink); box-shadow:0 6px 20px rgba(20,30,45,.14);
+    display:none; z-index:30; text-align:left; white-space:normal; overflow-wrap:break-word;
+  }
+  .bot-bubble.show{ display:block; animation:popIn .18s ease; }
+  .bot-bubble::after{ content:''; position:absolute; top:-6px; right:13px; width:11px; height:11px; background:#fff; border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg); }
+  .bot-bubble b{ display:block; margin-bottom:4px; color:var(--teal); }
+
+  .app-tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); background:var(--card); padding:0 32px;}
+  .app-tabs a{ padding:9px 16px; font-size:12.5px; font-weight:600; text-decoration:none; color:var(--slate-soft); border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .app-tabs a:hover{color:var(--ink);}
+  .app-tabs a.active{color:var(--teal); border-bottom-color:var(--teal);}
+
+  .wrap{max-width:860px; margin:0 auto; padding:22px 32px 64px;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; margin-bottom:20px; overflow:hidden; box-shadow:0 1px 2px rgba(20,30,45,.04);}
+  .card h2{margin:0; padding:14px 20px; font-size:14.5px; font-weight:700; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; background:#fbfcfd; font-family:var(--heading);}
+  .card .body{ padding:18px 20px; }
+  .note{ font-size:12.5px; color:var(--slate-soft); margin:0 0 14px; }
+  .note.small{ font-size:11.5px; }
+
+  .file-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+  @media (max-width:760px){ .file-grid{ grid-template-columns:1fr; } }
+  .file-drop{
+    position:relative; display:block; border:1.5px dashed var(--line); border-radius:9px; padding:12px 14px; cursor:pointer;
+  }
+  .file-drop.filled{ border-color:var(--teal); border-style:solid; background:var(--teal-soft); }
+  .file-drop input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .file-label{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:3px; }
+  .file-hint{ display:block; font-size:10.5px; color:var(--slate-soft); line-height:1.4; margin-bottom:8px; }
+  .file-name{ display:block; font-size:11.5px; color:var(--slate-soft); word-break:break-all; }
+  .file-name.has-file{ color:var(--teal); font-weight:600; }
+
+  .checkbox-row{ display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--slate-soft); line-height:1.5; }
+  .checkbox-row input{ margin-top:2px; }
+  .checkbox-row code{ background:#eef1f4; padding:1px 5px; border-radius:4px; font-family:var(--mono); }
+
+  .date-input{ font-family:var(--sans); font-size:13.5px; border-radius:7px; border:1px solid var(--line); padding:8px 12px; background:var(--card); color:var(--ink); }
+
+  .sdm-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:10px; }
+  @media (max-width:700px){ .sdm-grid{ grid-template-columns:1fr 1fr; } }
+  .sdm-grid label{ font-size:11.5px; font-weight:700; color:var(--slate-soft); text-transform:uppercase; letter-spacing:.03em; display:flex; flex-direction:column; gap:5px; }
+  .sdm-grid input{ font-family:var(--sans); font-size:13.5px; font-weight:400; text-transform:none; letter-spacing:normal; border-radius:7px; border:1px solid var(--line); padding:8px 12px; }
+
+  .action-row{ display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  button.generate-btn{ background:var(--teal); border:1px solid var(--teal); color:#fff; font-weight:600; border-radius:8px; padding:11px 22px; font-size:14px; cursor:pointer; }
+  button.generate-btn:disabled{ opacity:.45; cursor:not-allowed; }
+  button.generate-btn.loading::before{ content:''; display:inline-block; width:12px; height:12px; margin-right:8px; vertical-align:-2px; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+  .status-text{ font-size:12.5px; color:var(--slate-soft); }
+  .error-box{ background:#fdecea; border:1px solid #f3c9c4; color:var(--red); border-radius:8px; padding:12px 16px; font-size:13px; margin-bottom:18px; }
+
+  .output-header{ display:flex; align-items:center; justify-content:space-between; }
+  .copy-btn{ font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--teal); background:var(--teal-soft); border:none; border-radius:6px; padding:5px 12px; cursor:pointer; }
+  .copy-btn:hover{ background:#d5ece7; }
+  .output-block{ margin:0; padding:18px 20px; font-family:var(--mono); font-size:12.5px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  .debug-details{ margin:0 20px 16px; font-size:12px; color:var(--slate-soft); }
+  .debug-details summary{ cursor:pointer; font-weight:600; color:var(--slate); }
+  .debug-details ul{ margin:8px 0 0; padding-left:18px; }
+
+  .chart-canvas-wrap{ position:relative; height:280px; padding:14px 16px 4px; }
+  .chart-actions{ padding:0 20px 16px; display:flex; justify-content:flex-end; }
+
+  .empty-hint{ padding:28px; text-align:center; color:var(--slate-soft); font-size:13px; }
+</style>
+</head>
+<body data-section="daily">
+<script src="/shell.js"></script>
+
+<header>
+  <div>
+    <h1>Daily Report Interaction</h1>
+  </div>
+  <div class="header-account">
+    <span id="whoami"></span>
+    <div class="bot-helper">
+      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/robot.png" alt="Bantuan"></button>
+      <div class="bot-bubble" id="bot-bubble">
+        <b>Cara pakai halaman ini</b>
+        Upload 3 raw report (Ticket, Detail Interaction Voice, Detail Interaction), pilih tanggal report (metrik dihitung Month-to-Date), isi Kehadiran SDM manual, lalu klik Generate Report. Hasilnya siap di-copy ke WhatsApp, lengkap dengan 2 grafik harian yang bisa didownload sebagai PNG. Centang "Raw pakai tanda kutip" kalau kolom angka/tanggal di file .xlsx keimpor sebagai teks berawalan kutip satu.
+      </div>
+    </div>
+    <button id="btn-logout">Logout</button>
+  </div>
+</header>
+<div class="app-tabs">
+  <a href="/">Data Tersimpan</a>
+  <a href="/database">Kelola Database</a>
+  <a href="/users">Kelola User</a>
+  <a href="/config">Konfigurasi Kolom</a>
+</div>
+
+<div class="wrap">
+  <div class="card"><h2>1. Upload Raw Report</h2><div class="body">
+    <div class="file-grid" id="fileGrid">
+      <label class="file-drop" id="drop-ticket">
+        <span class="file-label">Raw Report Ticket</span>
+        <span class="file-hint">report_ticket_*.xlsx / .csv — sumber COF/ACD/AHT Email &amp; WhatsApp + Top KIP</span>
+        <input type="file" accept=".xlsx,.xls,.csv" data-key="ticket">
+        <span class="file-name" id="fname-ticket">Belum ada file</span>
+      </label>
+      <label class="file-drop" id="drop-voice">
+        <span class="file-label">Raw Detail Interaction Voice</span>
+        <span class="file-hint">report_detail_interaction_voice_*.xlsx / .csv — sumber metrik Voice</span>
+        <input type="file" accept=".xlsx,.xls,.csv" data-key="voice">
+        <span class="file-name" id="fname-voice">Belum ada file</span>
+      </label>
+      <label class="file-drop" id="drop-detail">
+        <span class="file-label">Raw Detail Interaction (Email &amp; WhatsApp)</span>
+        <span class="file-hint">report_detail_interaction_*.xlsx / .csv — sumber Response Time Email &amp; WhatsApp</span>
+        <input type="file" accept=".xlsx,.xls,.csv" data-key="detail">
+        <span class="file-name" id="fname-detail">Belum ada file</span>
+      </label>
+    </div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="stripApostrophe">
+      <span>Raw pakai format tanda kutip (<code>'</code>) — centang kalau kolom angka/tanggal di file .xlsx keimpor sebagai teks berawalan kutip satu. File .csv otomatis dicek tanpa perlu centang ini.</span>
+    </label>
+  </div></div>
+
+  <div class="card"><h2>2. Tanggal Report</h2><div class="body">
+    <p class="note">Metrik dihitung Month-to-Date: dari tanggal 1 bulan yang sama sampai tanggal ini.</p>
+    <input type="date" id="refDateStr" class="date-input">
+  </div></div>
+
+  <div class="card"><h2>3. Kehadiran SDM Layanan (input manual)</h2><div class="body">
+    <div class="sdm-grid">
+      <label>Total SDM<input type="number" id="sdmTotalSdm" min="0"></label>
+      <label>Total SDM Terjadwal<input type="number" id="sdmTerjadwal" min="0"></label>
+      <label>Total SDM Tidak Hadir<input type="number" id="sdmTidakHadir" min="0"></label>
+      <label>Total SDM Terlambat Hadir<input type="number" id="sdmTerlambat" min="0"></label>
+      <label>Attendance (%)<input type="number" id="sdmAttendance" min="0" max="100" step="0.01"></label>
+    </div>
+    <p class="note small">Lateness &amp; Adherence dihitung otomatis dari Terlambat Hadir / Terjadwal.</p>
+  </div></div>
+
+  <div class="action-row">
+    <button class="generate-btn" id="btnGenerate">Generate Report</button>
+    <span class="status-text" id="statusText"></span>
+  </div>
+
+  <div class="error-box" id="errorBox" style="display:none;"></div>
+
+  <div class="card" id="outputCard" style="display:none;">
+    <div class="output-header" style="padding:14px 20px; border-bottom:1px solid var(--line); background:#fbfcfd;">
+      <h2 style="padding:0; border:none; background:none;">Hasil</h2>
+      <button class="copy-btn" id="btnCopy">Copy</button>
+    </div>
+    <pre class="output-block" id="outputBlock"></pre>
+    <details class="debug-details" id="debugDetails"></details>
+  </div>
+
+  <div class="card" id="dailyChartCard" style="display:none;">
+    <h2>Grafik Harian</h2>
+    <div class="chart-canvas-wrap"><canvas id="chartDaily"></canvas></div>
+    <div class="chart-actions"><button class="copy-btn" id="btnDownloadDaily">Download PNG</button></div>
+    <canvas id="chartDailyExport" style="position:fixed; top:0; left:-99999px;" aria-hidden="true"></canvas>
+  </div>
+
+  <div class="card" id="rtChartCard" style="display:none;">
+    <h2>Grafik Response Time Harian</h2>
+    <div class="chart-canvas-wrap"><canvas id="chartRt"></canvas></div>
+    <div class="chart-actions"><button class="copy-btn" id="btnDownloadRt">Download PNG</button></div>
+    <canvas id="chartRtExport" style="position:fixed; top:0; left:-99999px;" aria-hidden="true"></canvas>
+  </div>
+</div>
+
+<script>
+document.getElementById('btn-bot').addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('bot-bubble').classList.toggle('show'); });
+document.addEventListener('click', (e) => { const b = document.getElementById('bot-bubble'); if (b.classList.contains('show') && !e.target.closest('.bot-helper')) b.classList.remove('show'); });
+document.getElementById('btn-logout').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login'; });
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email) document.getElementById('whoami').textContent = d.email; }).catch(() => {});
+
+// ---- column config: same "Konfigurasi Kolom" values the main tool uses ----
+const FIELD_DEFAULTS = {
+  daily_ticket_source: 'source_name', daily_ticket_origin: 'date_origin_interaction', daily_ticket_channel: 'channel_name',
+  daily_ticket_start: 'date_start_interaction', daily_ticket_end: 'date_end_interaction',
+  daily_ticket_main: 'mainCategory', daily_ticket_sub: 'subCategory', daily_ticket_detail: 'detailSubCategory',
+  daily_voice_datetime: 'datetime', daily_voice_event: 'event', daily_voice_talktime: 'talktime',
+  daily_detail_session: 'session_id', daily_detail_origin: 'date_origin', daily_detail_action: 'action_type',
+  daily_detail_received: 'date_received', daily_detail_channel: 'channel_name',
+};
+let columnOverrides = {};
+const configReady = fetch('/api/column-config').then(r => r.ok ? r.json() : {}).then(c => { columnOverrides = c || {}; }).catch(() => {});
+function buildColMap(){
+  const g = (k) => (columnOverrides[k] && columnOverrides[k] !== '') ? columnOverrides[k] : FIELD_DEFAULTS[k];
+  return {
+    ticket: { source:g('daily_ticket_source'), origin:g('daily_ticket_origin'), channel:g('daily_ticket_channel'), start:g('daily_ticket_start'), end:g('daily_ticket_end'), main:g('daily_ticket_main'), sub:g('daily_ticket_sub'), detail:g('daily_ticket_detail') },
+    voice: { datetime:g('daily_voice_datetime'), event:g('daily_voice_event'), talktime:g('daily_voice_talktime') },
+    detail: { session:g('daily_detail_session'), origin:g('daily_detail_origin'), action:g('daily_detail_action'), received:g('daily_detail_received'), channel:g('daily_detail_channel') },
+  };
+}
+
+// ---- file inputs ----
+const files = { ticket:null, voice:null, detail:null };
+document.querySelectorAll('#fileGrid input[type=file]').forEach((input) => {
+  input.addEventListener('change', (e) => {
+    const key = input.dataset.key;
+    const f = e.target.files && e.target.files[0];
+    files[key] = f || null;
+    const nameEl = document.getElementById('fname-' + key);
+    const dropEl = document.getElementById('drop-' + key);
+    if (f) { nameEl.textContent = f.name; nameEl.classList.add('has-file'); dropEl.classList.add('filled'); }
+    else { nameEl.textContent = 'Belum ada file'; nameEl.classList.remove('has-file'); dropEl.classList.remove('filled'); }
+    document.getElementById('outputCard').style.display = 'none';
+  });
+});
+
+function todayISO(){
+  const d = new Date(); const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+}
+document.getElementById('refDateStr').value = todayISO();
+
+// ---- generate ----
+let dailySeries = null, rtSeries = null;
+
+document.getElementById('btnGenerate').addEventListener('click', async () => {
+  const btn = document.getElementById('btnGenerate');
+  const status = document.getElementById('statusText');
+  const errBox = document.getElementById('errorBox');
+  errBox.style.display = 'none';
+  document.getElementById('outputCard').style.display = 'none';
+  document.getElementById('dailyChartCard').style.display = 'none';
+  document.getElementById('rtChartCard').style.display = 'none';
+
+  const refDateStr = document.getElementById('refDateStr').value;
+  if (!files.ticket || !files.voice || !files.detail || !refDateStr) {
+    errBox.textContent = 'Upload ketiga file raw dan pilih tanggal dulu ya.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true; btn.classList.add('loading');
+  try {
+    await configReady;
+    const C = buildColMap();
+    const readOpts = { stripApostrophe: document.getElementById('stripApostrophe').checked };
+    status.textContent = 'Membaca file ticket...';
+    const ticketData = await DailyLib.readWorkbookRows(files.ticket, readOpts);
+    status.textContent = 'Membaca file voice...';
+    const voiceData = await DailyLib.readWorkbookRows(files.voice, readOpts);
+    status.textContent = 'Membaca file detail interaction...';
+    const detailData = await DailyLib.readWorkbookRows(files.detail, readOpts);
+
+    const { missing } = DailyLib.resolveCols(C, { ticket: ticketData.headers, voice: voiceData.headers, detail: detailData.headers });
+    const missingAll = [...missing.ticket, ...missing.voice, ...missing.detail];
+    if (missingAll.length) {
+      status.textContent = '';
+      errBox.innerHTML = 'Kolom berikut tidak ditemukan di file yang diupload: <b>' + missingAll.join(', ') +
+        '</b>. Cek nama kolom di file raw-nya, atau sesuaikan di halaman <a href="/config" style="color:inherit;text-decoration:underline;">Konfigurasi Kolom</a>.';
+      errBox.style.display = 'block';
+      btn.disabled = false; btn.classList.remove('loading');
+      return;
+    }
+
+    status.textContent = 'Menghitung metrik...';
+    const [y, m, d] = refDateStr.split('-').map(Number);
+    const refDate = new Date(y, m - 1, d);
+
+    const ticketMetrics = DailyLib.computeTicketMetrics(ticketData.rows, refDate, C);
+    const voiceMetrics = DailyLib.computeVoiceMetrics(voiceData.rows, refDate, C);
+    const rt = DailyLib.computeResponseTimeMetrics(detailData.rows, refDate, C);
+
+    const email = { cof: ticketMetrics.email.cof, acd: ticketMetrics.email.acd, aht: ticketMetrics.email.aht, rt: rt.email };
+    const wa = { cof: ticketMetrics.wa.cof, acd: ticketMetrics.wa.acd, aht: ticketMetrics.wa.aht, rt: rt.wa };
+
+    const sdm = {
+      totalSdm: Number(document.getElementById('sdmTotalSdm').value) || 0,
+      totalTerjadwal: Number(document.getElementById('sdmTerjadwal').value) || 0,
+      totalTidakHadir: Number(document.getElementById('sdmTidakHadir').value) || 0,
+      totalTerlambat: Number(document.getElementById('sdmTerlambat').value) || 0,
+      attendance: Number(document.getElementById('sdmAttendance').value) || 0,
+    };
+
+    const text = DailyLib.formatReport({ refDate, voice: voiceMetrics, email, wa, topKip: ticketMetrics.topKip, sdm });
+    dailySeries = DailyLib.computeDailySeries(ticketData.rows, voiceData.rows, refDate, C);
+    rtSeries = DailyLib.computeDailyResponseTimeSeries(detailData.rows, refDate, C);
+
+    document.getElementById('outputBlock').textContent = text;
+    const dbg = ticketMetrics.debug;
+    document.getElementById('debugDetails').innerHTML =
+      '<summary>Detail perhitungan (debug)</summary><ul>' +
+      '<li>Email tickets (MTD, excl EOS Monitoring): ' + dbg.emailCount + '</li>' +
+      '<li>WhatsApp tickets: ' + dbg.waCount + '</li>' +
+      '<li>Manual tickets digabung ke WA COF: ' + dbg.manualCount + '</li>' +
+      '<li>Voice tickets (ikut Top KIP saja): ' + dbg.voiceTicketCount + '</li>' +
+      '<li>Total tiket dasar Top KIP: ' + dbg.totalForKip + '</li></ul>';
+    document.getElementById('outputCard').style.display = 'block';
+    fadeInEl(document.getElementById('outputCard'));
+
+    renderDailyChart(dailySeries);
+    renderRtChart(rtSeries);
+    document.getElementById('dailyChartCard').style.display = 'block';
+    document.getElementById('rtChartCard').style.display = 'block';
+    fadeInEl(document.getElementById('dailyChartCard'));
+    fadeInEl(document.getElementById('rtChartCard'));
+    status.textContent = '';
+  } catch (err) {
+    console.error(err);
+    errBox.textContent = 'Gagal generate report: ' + err.message;
+    errBox.style.display = 'block';
+    status.textContent = '';
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading');
+  }
+});
+
+function fadeInEl(el){ el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
+
+document.getElementById('btnCopy').addEventListener('click', async () => {
+  const btn = document.getElementById('btnCopy');
+  try {
+    await navigator.clipboard.writeText(document.getElementById('outputBlock').textContent);
+    btn.textContent = 'Tersalin!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+  } catch (e) {
+    alert('Gagal copy ke clipboard, silakan select manual.');
+  }
+});
+
+// ---- charts (Chart.js) ----
+if (window.ChartDataLabels) Chart.register(window.ChartDataLabels);
+const DAILY_COLORS = { voice:'#8fa3ba', email:'#e67e22', whatsapp:'#38bdf8' };
+const RT_COLORS = { email:'#e67e22', wa:'#38bdf8' };
+let chartDaily = null, chartRt = null;
+const EXPORT_PER_DAY = 46, EXPORT_MIN_WIDTH = 900, EXPORT_HEIGHT = 560;
+
+const whiteBg = { id:'whiteBg', beforeDraw(chart){ const { ctx, width, height } = chart; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle='#fff'; ctx.fillRect(0,0,width,height); ctx.restore(); } };
+
+function dailyConfig(series, forExport){
+  const labels = series.map(d => [d.dayName, d.dateLabel]);
+  return {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'Voice', data: series.map(d=>d.voice), backgroundColor:DAILY_COLORS.voice, stack:'s', borderRadius:4, borderSkipped:false, maxBarThickness: forExport?28:34 },
+      { label:'Email', data: series.map(d=>d.email), backgroundColor:DAILY_COLORS.email, stack:'s', borderRadius:4, borderSkipped:false, maxBarThickness: forExport?28:34 },
+      { label:'WhatsApp', data: series.map(d=>d.whatsapp), backgroundColor:DAILY_COLORS.whatsapp, stack:'s', borderRadius:4, borderSkipped:false, maxBarThickness: forExport?28:34 },
+    ]},
+    options: chartOpts(series.length, forExport, { stacked:true, title:'Akumulasi Daily Traffic Interaksi All Channel', datalabels:true })
+  };
+}
+function rtConfig(series, forExport){
+  const labels = series.map(d => [d.dayName, d.dateLabel]);
+  const toMin = (s) => s == null ? null : s/60;
+  return {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Email', data: series.map(d=>toMin(d.email)), borderColor:RT_COLORS.email, backgroundColor:RT_COLORS.email, pointRadius:forExport?3.5:2.5, borderWidth:forExport?2.5:2, tension:0.3, spanGaps:true, fill:false },
+      { label:'WhatsApp', data: series.map(d=>toMin(d.wa)), borderColor:RT_COLORS.wa, backgroundColor:RT_COLORS.wa, pointRadius:forExport?3.5:2.5, borderWidth:forExport?2.5:2, tension:0.3, spanGaps:true, fill:false },
+    ]},
+    options: chartOpts(series.length, forExport, { stacked:false, title:'Pergerakan Response Time Harian Email vs WhatsApp', minuteTicks:true })
+  };
+}
+function chartOpts(n, forExport, o){
+  const axisFontSize = forExport ? 13 : Math.max(9, Math.min(11, 900/n/4));
+  return {
+    responsive: !forExport, maintainAspectRatio:false,
+    devicePixelRatio: forExport ? 2 : undefined,
+    animation: forExport ? false : undefined,
+    layout:{ padding:{ top:8, right:16, bottom:4, left:4 } },
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      title:{ display:true, text:o.title, color:'#1b2430', font:{ family:"'Poppins','Segoe UI',Arial,sans-serif", size: forExport?17:14, weight:'600' }, padding:{ bottom:18 } },
+      legend:{ position:'bottom', labels:{ color:'#425066', usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:18, font:{ size: forExport?13:12 } } },
+      tooltip:{ enabled: !forExport, backgroundColor:'#1b2430', titleColor:'#fff', bodyColor:'#dbe2e9', padding:10 },
+      datalabels: o.datalabels ? {
+        color:(ctx) => ctx.dataset.label === 'Voice' ? '#1a2620' : '#fff',
+        font:{ size: forExport?11:10, weight:'600' },
+        formatter:(v) => v > 0 ? v : '',
+        display:(ctx) => typeof ctx.dataset.data[ctx.dataIndex] === 'number' && ctx.dataset.data[ctx.dataIndex] > 0,
+      } : { display:false },
+    },
+    scales:{
+      x:{ stacked: !!o.stacked, grid:{ display:false }, ticks:{ color:'#6b7a8f', maxRotation:0, minRotation:0, autoSkip: !forExport, font:{ size:axisFontSize, lineHeight:1.4 } } },
+      y:{ stacked: !!o.stacked, beginAtZero:true, grid:{ color:'#eef1f4' }, ticks:{ color:'#6b7a8f', font:{ size: forExport?12:10.5 }, callback: o.minuteTicks ? (v) => v.toFixed(2)+'m' : undefined } },
+    }
+  };
+}
+
+function renderDailyChart(series){
+  if (chartDaily) chartDaily.destroy();
+  chartDaily = new Chart(document.getElementById('chartDaily'), dailyConfig(series, false));
+}
+function renderRtChart(series){
+  if (chartRt) chartRt.destroy();
+  chartRt = new Chart(document.getElementById('chartRt'), rtConfig(series, false));
+}
+function downloadChart(series, cfgFn, canvasId, filename){
+  const width = Math.max(EXPORT_MIN_WIDTH, series.length * EXPORT_PER_DAY);
+  const canvas = document.getElementById(canvasId);
+  canvas.width = width; canvas.height = EXPORT_HEIGHT;
+  const cfg = cfgFn(series, true);
+  cfg.plugins = [whiteBg];
+  const chart = new Chart(canvas, cfg);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const url = chart.toBase64Image('image/png', 1);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    chart.destroy();
+  }));
+}
+document.getElementById('btnDownloadDaily').addEventListener('click', () => { if (dailySeries) downloadChart(dailySeries, dailyConfig, 'chartDailyExport', 'akumulasi_daily_traffic_interaksi_all_channel.png'); });
+document.getElementById('btnDownloadRt').addEventListener('click', () => { if (rtSeries) downloadChart(rtSeries, rtConfig, 'chartRtExport', 'pergerakan_response_time_harian_email_vs_whatsapp.png'); });
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Report Generator — Parameter Indicator & Kategori Produk</title>
+<title>Monthly Report Interaction — QuickReportHelper</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -129,13 +129,15 @@
   .bot-helper button:hover{ background:var(--paper); border:none; }
   .bot-helper button img{ width:100%; height:100%; object-fit:contain; display:block; animation:botFloat 3.2s ease-in-out infinite; }
 </style>
+<link rel="stylesheet" href="/shell.css">
 </head>
-<body>
+<body data-section="monthly">
+<script src="/shell.js"></script>
 <button class="exit-capture" id="btn-exit-capture">✕ Keluar Mode Capture</button>
 
 <header>
   <div>
-    <h1>Report Generator</h1>
+    <h1>Monthly Report Interaction</h1>
   </div>
   <div class="header-account">
     <span id="whoami"></span>

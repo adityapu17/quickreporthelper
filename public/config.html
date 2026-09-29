@@ -61,8 +61,10 @@
   .bot-helper button:hover{ background:var(--paper); border:none; }
   .bot-helper button img{ width:100%; height:100%; object-fit:contain; display:block; animation:botFloat 3.2s ease-in-out infinite; }
 </style>
+<link rel="stylesheet" href="/shell.css">
 </head>
-<body>
+<body data-section="monthly">
+<script src="/shell.js"></script>
 <header>
   <h1>Konfigurasi Kolom</h1>
   <div class="header-account">
@@ -113,7 +115,23 @@ const FIELD_DEFAULTS = {
   detail_date_received: 'date_received',
   voice_event: 'event',
   voice_talktime: 'talktime',
-  voice_datetime: 'datetime'
+  voice_datetime: 'datetime',
+  daily_ticket_source: 'source_name',
+  daily_ticket_origin: 'date_origin_interaction',
+  daily_ticket_channel: 'channel_name',
+  daily_ticket_start: 'date_start_interaction',
+  daily_ticket_end: 'date_end_interaction',
+  daily_ticket_main: 'mainCategory',
+  daily_ticket_sub: 'subCategory',
+  daily_ticket_detail: 'detailSubCategory',
+  daily_voice_datetime: 'datetime',
+  daily_voice_event: 'event',
+  daily_voice_talktime: 'talktime',
+  daily_detail_session: 'session_id',
+  daily_detail_origin: 'date_origin',
+  daily_detail_action: 'action_type',
+  daily_detail_received: 'date_received',
+  daily_detail_channel: 'channel_name'
 };
 const FIELD_LABELS = {
   ticket_id: 'ID Ticket',
@@ -137,12 +155,31 @@ const FIELD_LABELS = {
   detail_date_received: 'Tanggal Diterima Pesan',
   voice_event: 'Event — dipakai deteksi ABANDON',
   voice_talktime: 'Talk Time (durasi panggilan) — dasar AHT',
-  voice_datetime: 'Tanggal/Waktu Panggilan'
+  voice_datetime: 'Tanggal/Waktu Panggilan',
+  daily_ticket_source: 'Source Name (exclude "EOS Monitoring")',
+  daily_ticket_origin: 'Tanggal Origin Interaksi — dasar Month-to-Date & grafik harian',
+  daily_ticket_channel: 'Channel (Email/Whatsapp/Manual/Voice)',
+  daily_ticket_start: 'Tanggal Mulai Interaksi — dasar AHT Email/WhatsApp',
+  daily_ticket_end: 'Tanggal Selesai Interaksi — dasar AHT Email/WhatsApp',
+  daily_ticket_main: 'Main Category — dasar Top 5 KIP',
+  daily_ticket_sub: 'Sub Category — dasar Top 5 KIP',
+  daily_ticket_detail: 'Detail Sub Category — dasar Top 5 KIP',
+  daily_voice_datetime: 'Tanggal/Waktu Panggilan',
+  daily_voice_event: 'Event — dipakai deteksi ABANDON, dasar SCR',
+  daily_voice_talktime: 'Talk Time (durasi panggilan) — dasar AHT Voice',
+  daily_detail_session: 'Session ID',
+  daily_detail_origin: 'Tanggal Origin (urutan sort dalam 1 session)',
+  daily_detail_action: 'Action Type (IN/OUT) — dasar Response Time',
+  daily_detail_received: 'Tanggal Diterima Pesan — dasar Response Time',
+  daily_detail_channel: 'Channel (Email/Whatsapp)'
 };
 const GROUPS = [
   { title: 'File Ticket', keys: ['ticket_id','ticket_channel_name','ticket_subCategory','ticket_mainCategory','ticket_is_escalated','ticket_source_name','ticket_date_start','ticket_date_open','ticket_date_end','ticket_detailSubCategory','ticket_customer_hp','ticket_customer_email','ticket_customer_category','ticket_company'] },
   { title: 'File Detail Interaction (non-voice)', keys: ['detail_id_interaction','detail_session_id','detail_channel_name','detail_action_type','detail_date_received'] },
-  { title: 'File Detail Interaction Voice', keys: ['voice_event','voice_talktime','voice_datetime'] }
+  { title: 'File Detail Interaction Voice', keys: ['voice_event','voice_talktime','voice_datetime'] },
+  { title: 'Daily Report Interaction — Raw Report Ticket', keys: ['daily_ticket_source','daily_ticket_origin','daily_ticket_channel','daily_ticket_start','daily_ticket_end','daily_ticket_main','daily_ticket_sub','daily_ticket_detail'] },
+  { title: 'Daily Report Interaction — Raw Detail Interaction Voice', keys: ['daily_voice_datetime','daily_voice_event','daily_voice_talktime'] },
+  { title: 'Daily Report Interaction — Raw Detail Interaction (Email & WhatsApp)', keys: ['daily_detail_session','daily_detail_origin','daily_detail_action','daily_detail_received','daily_detail_channel'] }
 ];
 
 let currentConfig = {};

@@ -75,6 +75,7 @@
   .stat .label{ font-size:11px; color:var(--slate-soft); font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
   .stat .value{ font-size:19px; font-weight:700; font-family:var(--mono); }
   .stat.accent-e .value{ color:var(--teal); } .stat.accent-v .value{ color:var(--amber); } .stat.accent-w .value{ color:var(--blue); } .stat.accent-p .value{ color:#8b5fbf; }
+  .stat.accent-m .value{ color:#5b6675; }
 
   .chart-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
   @media (max-width:860px){ .chart-grid{ grid-template-columns:1fr; } }
@@ -97,6 +98,7 @@
   .chip{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700; font-family:var(--sans); }
   .chip.email{ background:#e4f2ef; color:var(--teal); } .chip.voice{ background:#fdf1de; color:var(--amber); }
   .chip.whatsapp{ background:#e7edfb; color:var(--blue); } .chip.perisai{ background:#e4f2ef; color:var(--teal); } .chip.emeterai{ background:#f2e9fb; color:#8b5fbf; }
+  .chip.manual{ background:#eef1f4; color:#5b6675; }
   .row-actions{ display:flex; gap:6px; }
   .icon-btn{ font-family:var(--sans); font-size:11.5px; font-weight:600; border:1px solid var(--line); background:var(--card); border-radius:6px; padding:4px 10px; cursor:pointer; }
   .icon-btn.danger{ color:var(--red); border-color:#f0c9c1; }
@@ -145,9 +147,8 @@
       <div class="cards" id="summaryCardsChannel"></div>
       <div class="chart-grid">
         <div><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">Tren Total Interaksi per Bulan</p><div class="chart-wrap"><canvas id="chartTrend"></canvas></div></div>
-        <div><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">AHT &amp; SCR — Voice</p><div class="chart-wrap"><canvas id="chartVoice"></canvas></div></div>
         <div><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">Breakdown per Channel</p><div class="chart-wrap"><canvas id="chartChannel"></canvas></div></div>
-        <div><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">Response Time — Email &amp; WhatsApp (menit)</p><div class="chart-wrap"><canvas id="chartResponse"></canvas></div></div>
+        <div style="grid-column:1 / -1;"><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">Response Time / AHT — Email, WhatsApp &amp; Voice (menit)</p><div class="chart-wrap"><canvas id="chartResponse"></canvas></div></div>
       </div>
     </div></div>
 
@@ -179,7 +180,7 @@
             </select></div>
           <div class="field"><label for="cTahun">Tahun</label><input type="number" id="cTahun" min="2020" max="2100" placeholder="2026" required></div>
           <div class="field"><label for="cChannel">Channel</label>
-            <select id="cChannel" required><option value="">Pilih channel</option><option value="Email">Email</option><option value="Voice">Voice</option><option value="WhatsApp">WhatsApp</option></select></div>
+            <select id="cChannel" required><option value="">Pilih channel</option><option value="Email">Email</option><option value="Voice">Voice</option><option value="WhatsApp">WhatsApp</option><option value="Manual">Manual</option></select></div>
           <div class="field"><label for="cTotal">Total Interaksi</label><input type="number" id="cTotal" min="0" step="1" placeholder="0" required></div>
         </div>
         <div class="cond-fields hidden" id="cFieldsEmailWa">
@@ -231,7 +232,7 @@
       <div class="body">
         <div class="filters">
           <div class="field"><label>Tahun</label><select id="mgYearChannel"><option value="all">Semua</option></select></div>
-          <div class="field"><label>Channel</label><select id="mgChannel"><option value="all">Semua</option><option value="Email">Email</option><option value="Voice">Voice</option><option value="WhatsApp">WhatsApp</option></select></div>
+          <div class="field"><label>Channel</label><select id="mgChannel"><option value="all">Semua</option><option value="Email">Email</option><option value="Voice">Voice</option><option value="WhatsApp">WhatsApp</option><option value="Manual">Manual</option></select></div>
         </div>
       </div>
       <div style="overflow-x:auto;">
@@ -264,9 +265,9 @@ document.getElementById('btn-logout').addEventListener('click', async () => { aw
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email) document.getElementById('whoami').textContent = d.email; }).catch(() => {});
 
 const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-const CH_CLASS = { Email:'email', Voice:'voice', WhatsApp:'whatsapp' };
+const CH_CLASS = { Email:'email', Voice:'voice', WhatsApp:'whatsapp', Manual:'manual' };
 const PR_CLASS = { Perisai:'perisai', 'E-Meterai':'emeterai' };
-const CHART_COLORS = { Email:'#0f7a6b', Voice:'#c98a1d', WhatsApp:'#3568c9' };
+const CHART_COLORS = { Email:'#0f7a6b', Voice:'#c98a1d', WhatsApp:'#3568c9', Manual:'#7a8698' };
 const PRODUK_COLORS = { Perisai:'#0f7a6b', 'E-Meterai':'#8b5fbf' };
 
 let channelRecords = [];
@@ -345,12 +346,15 @@ document.getElementById('formChannel').addEventListener('submit', async (e) => {
     const rt = document.getElementById('cResponse').value;
     payload.responseTime = rt === '' ? null : parseFloat(rt);
     payload.aht = null; payload.scr = null;
-  } else {
+  } else if (channel === 'Voice') {
     const aht = document.getElementById('cAht').value;
     const scr = document.getElementById('cScr').value;
     payload.aht = aht === '' ? null : parseFloat(aht);
     payload.scr = scr === '' ? null : parseFloat(scr);
     payload.responseTime = null;
+  } else {
+    // Manual: just a raw interaction count, no timing metrics.
+    payload.responseTime = null; payload.aht = null; payload.scr = null;
   }
   const btn = document.getElementById('submitChannelBtn');
   btn.disabled = true;
@@ -527,7 +531,6 @@ function renderDashboard(){
   renderSummaryChannel(chRows);
   renderSummaryProduk(prRows);
   safeRender(() => renderTrendChart(chRows), 'trend');
-  safeRender(() => renderVoiceChart(chRows), 'voice');
   safeRender(() => renderChannelChart(chRows), 'channel');
   safeRender(() => renderResponseChart(chRows), 'response');
   safeRender(() => renderTrendProdukChart(prRows), 'trendProduk');
@@ -537,7 +540,7 @@ function safeRender(fn, label){ try { fn(); } catch (err) { console.error('Chart
 
 function renderSummaryChannel(rows){
   const total = rows.reduce((s,r) => s + (r.totalInteraksi || 0), 0);
-  const byChannel = { Email:0, Voice:0, WhatsApp:0 };
+  const byChannel = { Email:0, Voice:0, WhatsApp:0, Manual:0 };
   rows.forEach(r => byChannel[r.channel] = (byChannel[r.channel] || 0) + (r.totalInteraksi || 0));
   const voiceRows = rows.filter(r => r.channel === 'Voice' && r.aht != null);
   const avgAht = voiceRows.length ? voiceRows.reduce((s,r) => s + r.aht, 0) / voiceRows.length : null;
@@ -548,6 +551,7 @@ function renderSummaryChannel(rows){
     { label:'Email', value: fmtNum(byChannel.Email), cls:'accent-e' },
     { label:'Voice', value: fmtNum(byChannel.Voice), cls:'accent-v' },
     { label:'WhatsApp', value: fmtNum(byChannel.WhatsApp), cls:'accent-w' },
+    { label:'Manual', value: fmtNum(byChannel.Manual), cls:'accent-m' },
     { label:'Rata² AHT', value: avgAht != null ? fmtNum(avgAht,2)+' mnt' : '—', cls:'accent-v' },
     { label:'Rata² SCR', value: avgScr != null ? fmtNum(avgScr,2)+'%' : '—', cls:'accent-v' },
   ];
@@ -577,40 +581,33 @@ function destroyChart(key){ if (charts[key]) { charts[key].destroy(); delete cha
 function renderTrendChart(rows){
   destroyChart('trend');
   const periods = sortedPeriods(rows);
-  const channels = ['Email','Voice','WhatsApp'];
+  const channels = ['Email','Voice','WhatsApp','Manual'];
   const datasets = channels.map(ch => ({
     label: ch,
     data: periods.map(([k]) => rows.filter(r => periodKey(r) === k && r.channel === ch).reduce((s,r) => s + (r.totalInteraksi || 0), 0)),
-    borderColor: CHART_COLORS[ch], backgroundColor: CHART_COLORS[ch], tension:0.3, borderWidth:2, pointRadius:3, fill:false,
+    backgroundColor: CHART_COLORS[ch], borderRadius:4, maxBarThickness:26,
   }));
-  charts.trend = new Chart(document.getElementById('chartTrend'), { type:'line', data:{ labels: periods.map(p => p[1]), datasets }, options: baseChartOptions({ legend:true }) });
-}
-function renderVoiceChart(rows){
-  destroyChart('voice');
-  const voiceRows = rows.filter(r => r.channel === 'Voice');
-  const periods = sortedPeriods(voiceRows);
-  const ahtData = periods.map(([k]) => { const items = voiceRows.filter(r => periodKey(r) === k && r.aht != null); return items.length ? items.reduce((s,r) => s + r.aht, 0) / items.length : null; });
-  const scrData = periods.map(([k]) => { const items = voiceRows.filter(r => periodKey(r) === k && r.scr != null); return items.length ? items.reduce((s,r) => s + r.scr, 0) / items.length : null; });
-  charts.voice = new Chart(document.getElementById('chartVoice'), { type:'line', data:{ labels: periods.map(p => p[1]), datasets:[
-    { label:'AHT (menit)', data: ahtData, borderColor:'#c98a1d', backgroundColor:'#c98a1d', yAxisID:'y', tension:0.3, borderWidth:2, pointRadius:3 },
-    { label:'SCR (%)', data: scrData, borderColor:'#3568c9', backgroundColor:'#3568c9', yAxisID:'y1', tension:0.3, borderWidth:2, pointRadius:3 },
-  ]}, options: baseChartOptions({ legend:true, dualAxis:true }) });
+  charts.trend = new Chart(document.getElementById('chartTrend'), { type:'bar', data:{ labels: periods.map(p => p[1]), datasets }, options: baseChartOptions({ legend:true }) });
 }
 function renderChannelChart(rows){
   destroyChart('channel');
-  const channels = ['Email','Voice','WhatsApp'];
+  const channels = ['Email','Voice','WhatsApp','Manual'];
   const data = channels.map(ch => rows.filter(r => r.channel === ch).reduce((s,r) => s + (r.totalInteraksi || 0), 0));
-  charts.channel = new Chart(document.getElementById('chartChannel'), { type:'bar', data:{ labels: channels, datasets:[{ data, backgroundColor: channels.map(c => CHART_COLORS[c]), borderRadius:5, maxBarThickness:48 }]}, options: baseChartOptions({ legend:false }) });
+  charts.channel = new Chart(document.getElementById('chartChannel'), { type:'pie', data:{ labels: channels, datasets:[{ data, backgroundColor: channels.map(c => CHART_COLORS[c]), borderWidth:2, borderColor:'#fff' }]}, options: baseChartOptions({ legend:true, pie:true }) });
 }
 function renderResponseChart(rows){
   destroyChart('response');
   const rtRows = rows.filter(r => (r.channel === 'Email' || r.channel === 'WhatsApp') && r.responseTime != null);
-  const periods = sortedPeriods(rtRows);
-  const emailData = periods.map(([k]) => { const items = rtRows.filter(r => periodKey(r) === k && r.channel === 'Email'); return items.length ? items.reduce((s,r) => s + r.responseTime, 0) / items.length : null; });
-  const waData = periods.map(([k]) => { const items = rtRows.filter(r => periodKey(r) === k && r.channel === 'WhatsApp'); return items.length ? items.reduce((s,r) => s + r.responseTime, 0) / items.length : null; });
+  const ahtRows = rows.filter(r => r.channel === 'Voice' && r.aht != null);
+  const periods = sortedPeriods([...rtRows, ...ahtRows]);
+  const avgFor = (list, k) => { const items = list.filter(r => periodKey(r) === k); return items.length ? items.reduce((s,r) => s + (r.responseTime ?? r.aht), 0) / items.length : null; };
+  const emailData = periods.map(([k]) => avgFor(rtRows.filter(r => r.channel === 'Email'), k));
+  const waData = periods.map(([k]) => avgFor(rtRows.filter(r => r.channel === 'WhatsApp'), k));
+  const voiceData = periods.map(([k]) => avgFor(ahtRows, k));
   charts.response = new Chart(document.getElementById('chartResponse'), { type:'line', data:{ labels: periods.map(p => p[1]), datasets:[
-    { label:'Email', data: emailData, borderColor:'#0f7a6b', backgroundColor:'#0f7a6b', tension:0.3, borderWidth:2, pointRadius:3 },
-    { label:'WhatsApp', data: waData, borderColor:'#3568c9', backgroundColor:'#3568c9', tension:0.3, borderWidth:2, pointRadius:3 },
+    { label:'Email (Response Time)', data: emailData, borderColor:'#0f7a6b', backgroundColor:'#0f7a6b', tension:0.3, borderWidth:2, pointRadius:3 },
+    { label:'WhatsApp (Response Time)', data: waData, borderColor:'#3568c9', backgroundColor:'#3568c9', tension:0.3, borderWidth:2, pointRadius:3 },
+    { label:'Voice (AHT)', data: voiceData, borderColor:'#c98a1d', backgroundColor:'#c98a1d', tension:0.3, borderWidth:2, pointRadius:3 },
   ]}, options: baseChartOptions({ legend:true }) });
 }
 function renderTrendProdukChart(rows){
@@ -634,6 +631,15 @@ function baseChartOptions(opts){
   opts = opts || {};
   const gridColor = '#eef1f4';
   const tickColor = '#6b7a8f';
+  if (opts.pie) {
+    return {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display: !!opts.legend, position:'bottom', labels:{ color:'#425066', boxWidth:9, boxHeight:9, usePointStyle:true, font:{ size:11 } } },
+        tooltip:{ backgroundColor:'#1b2430', borderColor:'#2b3a4a', borderWidth:1, titleColor:'#fff', bodyColor:'#dbe2e9', padding:10, titleFont:{ size:12 }, bodyFont:{ size:12 } }
+      }
+    };
+  }
   const o = {
     responsive:true, maintainAspectRatio:false,
     interaction:{ mode:'index', intersect:false },

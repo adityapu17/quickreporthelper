@@ -1,5 +1,5 @@
 // Shared input validation for the "Summary Interaction" API routes.
-const CHANNELS = ['Email', 'Voice', 'WhatsApp'];
+const CHANNELS = ['Email', 'Voice', 'WhatsApp', 'Manual'];
 const PRODUK = ['Perisai', 'E-Meterai'];
 
 function baseCheck(b) {

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QC Sampler — Intan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="/qc-lib.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shell.css">
+<style>
+  :root{
+    --ink:#1b2430; --slate:#425066; --slate-soft:#6b7a8f; --line:#d9e0e8;
+    --paper:#f6f8fa; --card:#ffffff; --teal:#0f7a6b; --teal-soft:#e4f2ef;
+    --red:#b3432f; --amber:#c98a1d;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "Segoe UI", "Poppins", Arial, sans-serif;
+    --heading: "Poppins", "Segoe UI", Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  @keyframes pageFade{ from{opacity:0;} to{opacity:1;} }
+  @keyframes cardIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes popIn{ from{opacity:0; transform:translateY(-4px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  body{ animation:pageFade .2s ease; margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); }
+  button, select, input, a{ transition:background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease, box-shadow .15s ease; }
+  button:active{ transform:scale(.96); }
+  select:focus, input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(15,122,107,.12); }
+  .fade-in{ animation:cardIn .2s ease both; }
+
+  header{padding:26px 32px 18px; border-bottom:1px solid var(--line); background:var(--card); display:flex; align-items:flex-start; justify-content:space-between; gap:20px;}
+  header h1{margin:0 0 4px; font-size:20px; letter-spacing:-0.01em; font-weight:700; font-family:var(--heading);}
+  .header-account{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--slate-soft); white-space:nowrap; padding-top:2px;}
+  .header-account button{background:none; border:1px solid var(--line); border-radius:6px; padding:5px 11px; font-size:12px; cursor:pointer; color:var(--slate); font-family:var(--sans);}
+  .header-account button:hover{background:var(--paper);}
+  .bot-helper{ position:relative; }
+  .bot-helper button{ border:none; border-radius:10px; width:36px; height:36px; padding:2px; background:none; cursor:pointer; }
+  .bot-helper button:hover{ background:var(--paper); }
+  @keyframes botFloat{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);} }
+  .bot-helper button img{ width:100%; height:100%; object-fit:contain; display:block; animation:botFloat 3.2s ease-in-out infinite; }
+  .bot-bubble{
+    position:absolute; top:calc(100% + 10px); right:0; width:280px;
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
+    font-size:12.5px; line-height:1.55; color:var(--ink); box-shadow:0 6px 20px rgba(20,30,45,.14);
+    display:none; z-index:30; text-align:left; white-space:normal; overflow-wrap:break-word;
+  }
+  .bot-bubble.show{ display:block; animation:popIn .18s ease; }
+  .bot-bubble::after{ content:''; position:absolute; top:-6px; right:13px; width:11px; height:11px; background:#fff; border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg); }
+  .bot-bubble b{ display:block; margin-bottom:4px; color:var(--teal); }
+
+  .wrap{max-width:900px; margin:0 auto; padding:22px 32px 64px;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; margin-bottom:20px; overflow:hidden; box-shadow:0 1px 2px rgba(20,30,45,.04);}
+  .card h2{margin:0; padding:14px 20px; font-size:14.5px; font-weight:700; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; background:#fbfcfd; font-family:var(--heading);}
+  .card h2 .step{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; background:var(--teal-soft); color:var(--teal); font-size:11.5px; font-weight:700; font-family:var(--mono); }
+  .card .body{ padding:18px 20px; }
+  .note{ font-size:12.5px; color:var(--slate-soft); margin:0 0 14px; }
+
+  .mode-toggle{ display:flex; gap:8px; margin-bottom:16px; }
+  .mode-btn{ font-family:var(--sans); font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--line); padding:8px 14px; background:var(--card); color:var(--slate); cursor:pointer; }
+  .mode-btn.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .mode-view{ display:none; }
+  .mode-view.active{ display:block; }
+
+  .dropzone{
+    position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    border:1.5px dashed var(--line); border-radius:10px; padding:32px 20px; cursor:pointer; text-align:center;
+  }
+  .dropzone.drag{ border-color:var(--teal); background:var(--teal-soft); }
+  .dropzone input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .dropzone .icon{ font-size:22px; color:var(--teal); }
+  .dropzone .main{ font-size:13.5px; font-weight:600; color:var(--ink); }
+  .dropzone .sub{ font-size:11.5px; color:var(--slate-soft); }
+
+  .checkbox-row{ display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--slate-soft); line-height:1.5; margin-top:12px; }
+  .checkbox-row input{ margin-top:2px; }
+  .checkbox-row code{ background:#eef1f4; padding:1px 5px; border-radius:4px; font-family:var(--mono); }
+
+  .db-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .db-row select{ font-family:var(--sans); font-size:13.5px; border-radius:7px; border:1px solid var(--line); padding:8px 12px; background:var(--card); color:var(--ink); min-width:220px; }
+  button.primary{ background:var(--teal); border:1px solid var(--teal); color:#fff; font-weight:600; border-radius:7px; padding:9px 16px; font-size:13.5px; cursor:pointer; }
+  button.primary:disabled{ opacity:.45; cursor:not-allowed; }
+  button.primary.loading::before{ content:''; display:inline-block; width:11px; height:11px; margin-right:7px; vertical-align:-1px; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+  button.ghost{ font-family:var(--sans); font-size:13.5px; border-radius:7px; border:1px solid var(--line); padding:8px 16px; background:var(--card); color:var(--ink); cursor:pointer; }
+
+  .error-box{ background:#fdecea; border:1px solid #f3c9c4; color:var(--red); border-radius:8px; padding:12px 16px; font-size:13px; margin-top:14px; }
+  .warning-box{ background:#fff7e6; border:1px solid #f0d896; color:#8a6414; border-radius:8px; padding:10px 14px; font-size:12.5px; margin-bottom:14px; }
+
+  .filebox{ display:flex; align-items:center; justify-content:space-between; background:#fbfcfd; border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:14px; }
+  .filebox .name{ font-weight:600; word-break:break-all; }
+
+  .stats-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  @media (max-width:700px){ .stats-row{ grid-template-columns:1fr 1fr; } }
+  .stat{ border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--card); }
+  .stat .label{ font-size:10.5px; color:var(--slate-soft); font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+  .stat .value{ font-size:17px; font-weight:700; font-family:var(--mono); }
+
+  .target-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .target-label{ font-size:12.5px; font-weight:600; color:var(--slate-soft); margin-right:4px; }
+  .pill{ font-family:var(--sans); font-size:12.5px; font-weight:600; border-radius:999px; border:1px solid var(--line); padding:6px 14px; background:var(--card); color:var(--slate); cursor:pointer; }
+  .pill.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .pill-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .select-search{ width:100%; font-family:var(--sans); font-size:13.5px; border-radius:7px; border:1px solid var(--line); padding:8px 12px; margin-bottom:12px; }
+
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .toolbar-left{ font-size:13px; }
+  .badge{ display:inline-block; background:var(--teal-soft); color:var(--teal); font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:6px; }
+  .toolbar-actions{ display:flex; gap:8px; }
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  thead th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); padding:10px 20px; border-bottom:1.5px solid var(--line); font-weight:700; background:#fbfcfd;}
+  tbody td{padding:10px 20px; border-bottom:1px solid #eef1f4; font-size:13px;}
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody td.mono{ font-family:var(--mono); }
+  .empty-note{ padding:22px; text-align:center; color:var(--slate-soft); font-size:13px; }
+
+  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff;
+    padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:50; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{ background:var(--red); }
+</style>
+</head>
+<body data-section="qc">
+<script src="/shell.js"></script>
+
+<header>
+  <div>
+    <h1>QC Sampler</h1>
+  </div>
+  <div class="header-account">
+    <span id="whoami"></span>
+    <div class="bot-helper">
+      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/robot.png" alt="Bantuan"></button>
+      <div class="bot-bubble" id="bot-bubble">
+        <b>Cara pakai halaman ini</b>
+        Pilih sumber data: upload file raw ticket, atau langsung ambil dari bulan yang sudah tersimpan di database. Pilih agent lalu channel, dan sample QC-nya otomatis muncul (4 atau 8 sample tergantung rentang tanggal data), siap di-copy ke Excel.
+      </div>
+    </div>
+    <button id="btn-logout">Logout</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card" id="card-source">
+    <h2><span class="step">01</span>Sumber Data</h2>
+    <div class="body">
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="upload">Upload File</button>
+        <button class="mode-btn" data-mode="database">Ambil dari Database</button>
+      </div>
+
+      <div id="mode-upload" class="mode-view active">
+        <label class="dropzone" id="dropzone">
+          <div class="icon">⇪</div>
+          <div class="main" id="dropzone-main">Klik atau drop file di sini</div>
+          <div class="sub">.xlsx / .xls / .csv</div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="stripQuotes" checked>
+          <span><b>Data mengandung tanda kutip di angka</b> — centang jika ticket ID / nomor HP di file diawali tanda kutip satu (contoh: <code>'342430</code>) atau dibungkus <code>="..."</code>. Dibersihkan otomatis saat parsing.</span>
+        </label>
+      </div>
+
+      <div id="mode-database" class="mode-view">
+        <p class="note">Ambil raw data ticket dari periode yang sudah disimpan lewat Monthly Report Interaction.</p>
+        <div class="db-row">
+          <select id="dbPeriodSelect"><option>Memuat periode…</option></select>
+          <button class="primary" id="btnLoadDb">Muat Data</button>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="stripQuotesDb" checked>
+          <span>Bersihkan tanda kutip di angka (biasanya aman dibiarkan tercentang).</span>
+        </label>
+      </div>
+
+      <div class="error-box" id="errorBox" style="display:none;"></div>
+
+      <div id="loadedInfo" style="display:none; margin-top:16px;">
+        <div class="filebox">
+          <span class="name" id="fileNameLabel"></span>
+          <button class="ghost" id="btnResetFile">Ganti sumber</button>
+        </div>
+        <div class="stats-row">
+          <div class="stat"><div class="label">Total baris valid</div><div class="value" id="statTotal">0</div></div>
+          <div class="stat"><div class="label">Rentang tanggal</div><div class="value" id="statRange" style="font-size:12.5px;">-</div></div>
+          <div class="stat"><div class="label">≈ Minggu</div><div class="value" id="statWeeks">0</div></div>
+          <div class="stat"><div class="label">Target sample</div><div class="value" id="statTarget">0</div></div>
+        </div>
+        <div class="target-row">
+          <span class="target-label">Jumlah sample:</span>
+          <button class="pill sm active" id="targetAuto">Auto</button>
+          <button class="pill sm" id="target4">4</button>
+          <button class="pill sm" id="target8">8</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="card-agent" style="display:none;">
+    <h2><span class="step">02</span>Pilih Agent</h2>
+    <div class="body">
+      <p class="note" id="agentCountNote">0 agent ditemukan di data.</p>
+      <input type="text" class="select-search" id="agentQuery" placeholder="Cari nama agent…">
+      <div class="pill-row" id="agentPillRow"></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-channel" style="display:none;">
+    <h2><span class="step">03</span>Pilih Channel</h2>
+    <div class="body">
+      <p class="note" id="channelNote"></p>
+      <div class="pill-row" id="channelPillRow"></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-result" style="display:none;">
+    <h2><span class="step">04</span>Hasil Sample</h2>
+    <div class="body">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <b id="resAgent"></b> · <b id="resChannel"></b>
+          <span class="badge" id="badgeFound"></span>
+          <span class="badge" id="badgeDates"></span>
+        </div>
+        <div class="toolbar-actions">
+          <button class="ghost" id="btnReroll">🎲 Acak ulang</button>
+          <button class="primary" id="btnCopySamples">Copy untuk Excel</button>
+        </div>
+      </div>
+      <div class="warning-box" id="warningBox" style="display:none;"></div>
+      <div style="overflow-x:auto;">
+        <table id="sampleTable">
+          <thead><tr><th>Case</th><th>Cust Email</th><th>Cust HP</th><th>Date</th><th>Hour</th></tr></thead>
+          <tbody id="sampleTbody"></tbody>
+        </table>
+        <div class="empty-note" id="emptyNote" style="display:none;">Tidak ada interaksi eligible untuk kombinasi agent + channel ini setelah exclude kategori spam.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+document.getElementById('btn-bot').addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('bot-bubble').classList.toggle('show'); });
+document.addEventListener('click', (e) => { const b = document.getElementById('bot-bubble'); if (b.classList.contains('show') && !e.target.closest('.bot-helper')) b.classList.remove('show'); });
+document.getElementById('btn-logout').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login'; });
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email) document.getElementById('whoami').textContent = d.email; }).catch(() => {});
+
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function fadeInEl(el){ el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
+function showError(msg){ const e = document.getElementById('errorBox'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; }
+
+// ---------- mode toggle ----------
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.mode-view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('mode-' + btn.dataset.mode).classList.add('active');
+    showError('');
+  });
+});
+
+// ---------- state ----------
+let rawRows = null, sourceLabel = '', dateRange = null, autoTarget = 4, targetOverride = null;
+let selectedAgent = '', selectedChannel = '', samples = [], sampleMeta = null;
+
+const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+// ---------- upload-file mode ----------
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); });
+document.getElementById('fileInput').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) handleFile(f); });
+
+async function handleFile(file){
+  showError('');
+  document.getElementById('dropzone-main').textContent = 'Membaca file…';
+  try {
+    const stripQuotes = document.getElementById('stripQuotes').checked;
+    const { rows, sheetName } = await QcLib.parseRawFile(file, stripQuotes);
+    onDataLoaded(rows, file.name + ' · sheet "' + sheetName + '"');
+  } catch (err) {
+    showError(err.message || 'Gagal membaca file.');
+  } finally {
+    document.getElementById('dropzone-main').textContent = 'Klik atau drop file di sini';
+  }
+}
+
+// ---------- database mode ----------
+async function refreshDbPeriods(){
+  const sel = document.getElementById('dbPeriodSelect');
+  try {
+    const res = await fetch('/api/periods');
+    const periods = res.ok ? await res.json() : [];
+    if (!periods.length){ sel.innerHTML = '<option>Belum ada data tersimpan</option>'; return; }
+    sel.innerHTML = periods.map(p => `<option value="${p.year}-${p.month}">${p.label} (${p.row_count} baris)</option>`).join('');
+  } catch (e) { sel.innerHTML = '<option>Gagal memuat daftar periode</option>'; }
+}
+refreshDbPeriods();
+
+document.getElementById('btnLoadDb').addEventListener('click', async () => {
+  const sel = document.getElementById('dbPeriodSelect');
+  const val = sel.value;
+  if (!val || !val.includes('-')) return;
+  const [year, month] = val.split('-').map(Number);
+  const label = sel.options[sel.selectedIndex].textContent;
+  const btn = document.getElementById('btnLoadDb');
+  showError('');
+  btn.disabled = true; btn.classList.add('loading');
+  try {
+    const res = await fetch(`/api/periods/${year}/${month}`);
+    if (!res.ok) throw new Error('Gagal memuat periode (status ' + res.status + ')');
+    const payload = await res.json();
+    const rawObjects = (payload.rows || []).map(r => r.raw || {});
+    const stripQuotes = document.getElementById('stripQuotesDb').checked;
+    const { rows } = QcLib.parseDbRows(rawObjects, stripQuotes, payload.label || (MONTHS[month] + ' ' + year));
+    onDataLoaded(rows, 'Database: ' + (payload.label || (MONTHS[month] + ' ' + year)));
+  } catch (err) {
+    showError(err.message || 'Gagal memuat data dari database.');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading');
+  }
+});
+
+// ---------- shared: once data is loaded (either mode) ----------
+function onDataLoaded(rows, label){
+  rawRows = rows;
+  sourceLabel = label;
+  selectedAgent = ''; selectedChannel = ''; samples = []; sampleMeta = null; targetOverride = null;
+  dateRange = QcLib.computeDateRange(rawRows);
+  autoTarget = dateRange ? QcLib.getSampleTarget(dateRange.days) : 4;
+
+  document.getElementById('fileNameLabel').textContent = '📄 ' + sourceLabel + ' — ' + rawRows.length + ' baris';
+  document.getElementById('statTotal').textContent = rawRows.length;
+  document.getElementById('statRange').textContent = dateRange && dateRange.min ? (QcLib.formatDate(dateRange.min) + ' – ' + QcLib.formatDate(dateRange.max)) : '-';
+  document.getElementById('statWeeks').textContent = dateRange ? Math.max(1, Math.round(dateRange.days / 7)) : 0;
+  document.getElementById('statTarget').textContent = autoTarget;
+  document.getElementById('targetAuto').textContent = 'Auto (' + autoTarget + ')';
+  setTargetActive(null);
+
+  document.getElementById('loadedInfo').style.display = 'block';
+  fadeInEl(document.getElementById('loadedInfo'));
+
+  renderAgentList();
+  document.getElementById('card-agent').style.display = 'block';
+  fadeInEl(document.getElementById('card-agent'));
+  document.getElementById('card-channel').style.display = 'none';
+  document.getElementById('card-result').style.display = 'none';
+}
+
+document.getElementById('btnResetFile').addEventListener('click', () => {
+  rawRows = null; sourceLabel = ''; dateRange = null; selectedAgent = ''; selectedChannel = ''; samples = []; sampleMeta = null;
+  document.getElementById('loadedInfo').style.display = 'none';
+  document.getElementById('card-agent').style.display = 'none';
+  document.getElementById('card-channel').style.display = 'none';
+  document.getElementById('card-result').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  showError('');
+});
+
+// ---------- target picker ----------
+function setTargetActive(val){
+  document.getElementById('targetAuto').classList.toggle('active', val === null);
+  document.getElementById('target4').classList.toggle('active', val === 4);
+  document.getElementById('target8').classList.toggle('active', val === 8);
+}
+function currentTarget(){ return targetOverride == null ? autoTarget : targetOverride; }
+document.getElementById('targetAuto').addEventListener('click', () => { targetOverride = null; setTargetActive(null); resample(); });
+document.getElementById('target4').addEventListener('click', () => { targetOverride = 4; setTargetActive(4); resample(); });
+document.getElementById('target8').addEventListener('click', () => { targetOverride = 8; setTargetActive(8); resample(); });
+
+// ---------- agent list ----------
+function renderAgentList(){
+  const agents = [...new Set(rawRows.map(r => r.agent).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  document.getElementById('agentCountNote').textContent = agents.length + ' agent ditemukan di data.';
+  window.__allAgents = agents;
+  paintAgentPills(agents);
+}
+function paintAgentPills(agents){
+  const row = document.getElementById('agentPillRow');
+  if (!agents.length){ row.innerHTML = '<span style="color:var(--slate-soft); font-size:13px;">Tidak ditemukan.</span>'; return; }
+  row.innerHTML = agents.map(a => `<button class="pill ${a === selectedAgent ? 'active' : ''}" data-agent="${a.replace(/"/g,'&quot;')}">${a}</button>`).join('');
+  row.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => pickAgent(btn.dataset.agent)));
+}
+document.getElementById('agentQuery').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const filtered = !q ? window.__allAgents : window.__allAgents.filter(a => a.toLowerCase().includes(q));
+  paintAgentPills(filtered);
+});
+
+function pickAgent(agent){
+  selectedAgent = agent; selectedChannel = ''; samples = []; sampleMeta = null;
+  paintAgentPills(window.__allAgents.filter(a => !document.getElementById('agentQuery').value.trim() || a.toLowerCase().includes(document.getElementById('agentQuery').value.trim().toLowerCase())));
+  renderChannelList();
+  document.getElementById('card-channel').style.display = 'block';
+  fadeInEl(document.getElementById('card-channel'));
+  document.getElementById('card-result').style.display = 'none';
+}
+
+function renderChannelList(){
+  const channels = [...new Set(rawRows.filter(r => r.agent === selectedAgent).map(r => r.channel).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  document.getElementById('channelNote').innerHTML = 'Channel yang tersedia untuk <b style="color:var(--ink);">' + selectedAgent + '</b>.';
+  const row = document.getElementById('channelPillRow');
+  if (!channels.length){ row.innerHTML = '<span style="color:var(--slate-soft); font-size:13px;">Tidak ada channel untuk agent ini.</span>'; return; }
+  row.innerHTML = channels.map(c => `<button class="pill ${c === selectedChannel ? 'active' : ''}" data-channel="${c.replace(/"/g,'&quot;')}">${c}</button>`).join('');
+  row.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => pickChannel(btn.dataset.channel)));
+}
+
+function pickChannel(channel){
+  selectedChannel = channel;
+  renderChannelList();
+  resample();
+  document.getElementById('card-result').style.display = 'block';
+  fadeInEl(document.getElementById('card-result'));
+}
+
+// ---------- sampling ----------
+function resample(){
+  if (!rawRows || !selectedAgent || !selectedChannel || !dateRange || !dateRange.min) return;
+  const eligibleRows = QcLib.filterEligibleRows(rawRows, selectedAgent, selectedChannel);
+  const { results, meta } = QcLib.generateSamples({ eligibleRows, min: dateRange.min, max: dateRange.max, sampleTarget: currentTarget() });
+  samples = results; sampleMeta = meta;
+  document.getElementById('statTarget').textContent = currentTarget();
+  renderResult();
+}
+document.getElementById('btnReroll').addEventListener('click', resample);
+
+const caseLabel = (r) => [r.customer_name, r.subCategory, r.detailSubCategory].map(v => v || '-').join(' / ');
+
+function renderResult(){
+  document.getElementById('resAgent').textContent = selectedAgent;
+  document.getElementById('resChannel').textContent = selectedChannel;
+  document.getElementById('badgeFound').textContent = (sampleMeta ? sampleMeta.found : 0) + ' / ' + currentTarget() + ' sample';
+  document.getElementById('badgeDates').textContent = (sampleMeta ? sampleMeta.uniqueDates : 0) + ' tanggal unik';
+
+  const warn = document.getElementById('warningBox');
+  if (sampleMeta && sampleMeta.found < sampleMeta.requested){
+    warn.style.display = 'block';
+    warn.textContent = `Hanya ditemukan ${sampleMeta.found} interaksi eligible dari ${sampleMeta.pool} baris (setelah exclude kategori spam) untuk kombinasi ini — kurang dari target ${sampleMeta.requested} sample.`;
+  } else {
+    warn.style.display = 'none';
+  }
+
+  const tbody = document.getElementById('sampleTbody');
+  const emptyNote = document.getElementById('emptyNote');
+  if (!samples.length){
+    tbody.innerHTML = ''; emptyNote.style.display = 'block';
+  } else {
+    emptyNote.style.display = 'none';
+    tbody.innerHTML = samples.map(r => `
+      <tr>
+        <td>${caseLabel(r)}</td>
+        <td class="mono">${r.customer_email || ''}</td>
+        <td class="mono">${r.customer_hp || ''}</td>
+        <td class="mono">${QcLib.formatDate(r.date)}</td>
+        <td class="mono">${QcLib.formatHour(r.date)}</td>
+      </tr>`).join('');
+  }
+  fadeInEl(document.getElementById('card-result'));
+}
+
+document.getElementById('btnCopySamples').addEventListener('click', async () => {
+  const rows = samples.map(r => [caseLabel(r), r.customer_email, r.customer_hp, QcLib.formatDateISO(r.date), QcLib.formatHour(r.date)]);
+  const ok = await QcLib.copyRowsToClipboard(null, rows);
+  toast(ok ? 'Tersalin — siap paste ke Excel' : 'Gagal menyalin, coba lagi', !ok);
+});
+</script>
+</body>
+</html>

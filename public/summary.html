@@ -667,41 +667,83 @@ function renderAll(){
 }
 
 // ---------- bulk upload (channel) ----------
-const BULK_CHANNELS = ['Voice','Email','Whatsapp Group (0811-9809-600)','Whatsapp Business (0811-9590-159)'];
+// Template rows: Voice, Email, Whatsapp Group → Manual, Whatsapp Business → WhatsApp
+// (same naming convention as the QC / monthly report pages).
 
 // Map Excel channel names to DB channel names
 function mapChannelName(name) {
-  name = name.trim().toLowerCase();
-  if (name.includes('voice') || name.includes('telepon')) return 'Voice';
-  if (name.includes('email') || name.includes('mail')) return 'Email';
-  if (name.includes('whatsapp')) return 'WhatsApp';
+  if (!name) return null;
+  const n = name.toString().trim().toLowerCase();
+  if (!n || n === 'total' || n.startsWith('total ')) return null;
+  if (n.includes('voice') || n.includes('telepon')) return 'Voice';
+  if (n.includes('email') || n.includes('mail')) return 'Email';
+  // WhatsApp Group is stored as Manual in this app; Business as WhatsApp
+  if (n.includes('whatsapp') && n.includes('group')) return 'Manual';
+  if (n.includes('manual')) return 'Manual';
+  if (n.includes('whatsapp') || n.includes('wa ')) return 'WhatsApp';
   return null;
 }
 
 // Parse Excel serial date number to {bulan, tahun}
 function excelDateToPeriod(serial) {
-  if (typeof serial !== 'number') return null;
+  if (typeof serial !== 'number' || !isFinite(serial)) return null;
   const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+  if (isNaN(d.getTime())) return null;
   return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
 }
 
-// Extract month from date string or number
+// Extract month from Date / Excel serial / string header cell
 function parseDateToPeriod(cell) {
-  if (!cell) return null;
+  if (cell == null || cell === '') return null;
+  if (cell instanceof Date && !isNaN(cell.getTime())) {
+    return { bulan: cell.getMonth() + 1, tahun: cell.getFullYear() };
+  }
   if (typeof cell === 'number') return excelDateToPeriod(cell);
   const s = cell.toString().trim();
   if (!s) return null;
   const d = new Date(s);
   if (!isNaN(d.getTime())) return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
-  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const months = [
+    'jan','feb','mar','apr','may','mei','jun','jul','aug','agu','sep','oct','okt','nov','dec','des'
+  ];
+  const monthIndex = { jan:1,feb:2,mar:3,apr:4,may:5,mei:5,jun:6,jul:7,aug:8,agu:8,sep:9,oct:10,okt:10,nov:11,dec:12,des:12 };
   const lower = s.toLowerCase();
-  for (let i = 0; i < months.length; i++) {
-    if (lower.includes(months[i])) {
+  for (const m of months) {
+    if (lower.includes(m)) {
       const yearMatch = s.match(/(\d{4})/);
-      return { bulan: i + 1, tahun: yearMatch ? parseInt(yearMatch[1]) : 2026 };
+      return { bulan: monthIndex[m], tahun: yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear() };
     }
   }
+  // "01/2026" or "1-2026"
+  const my = s.match(/^(\d{1,2})[\/\-](\d{4})$/);
+  if (my) {
+    const bulan = parseInt(my[1], 10);
+    if (bulan >= 1 && bulan <= 12) return { bulan, tahun: parseInt(my[2], 10) };
+  }
   return null;
+}
+
+function parseBulkNumber(value) {
+  if (typeof value === 'number') return isFinite(value) ? value : NaN;
+  if (value == null || value === '') return NaN;
+  const s = String(value).trim().replace(/\s/g, '').replace(/,/g, '');
+  if (!s) return NaN;
+  return parseFloat(s);
+}
+
+function upsertBulkRecord(records, rec) {
+  const existing = records.find(r =>
+    r.bulan === rec.bulan && r.tahun === rec.tahun && r.channel === rec.channel
+  );
+  if (existing) {
+    existing.totalInteraksi = rec.totalInteraksi;
+    if (rec.responseTime != null) existing.responseTime = rec.responseTime;
+    if (rec.aht != null) existing.aht = rec.aht;
+    if (rec.scr != null) existing.scr = rec.scr;
+    return existing;
+  }
+  records.push(rec);
+  return rec;
 }
 
 // Read file as ArrayBuffer wrapped in a promise
@@ -734,19 +776,29 @@ document.getElementById('bulkFileInput').addEventListener('change', async (e) =>
     }
     console.log('[bulk] SheetJS ready, file:', file.name, file.size, 'bytes');
 
-    // --- 2. Read file ---
+    // --- 2. Read file (must parse sheet contents — do NOT use bookSheets:true) ---
+    // SheetJS type:'array' needs a Uint8Array (byte array), not a raw ArrayBuffer.
     const arrayBuffer = await readFileAsArrayBuffer(file);
+    const bytes = new Uint8Array(arrayBuffer);
     let workbook;
     try {
-      workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', bookSheets: true, sheetNames: true });
+      workbook = XLSX.read(bytes, { type: 'array', cellDates: true });
     } catch (err) {
       throw new Error('Gagal parse Excel: ' + err.message);
     }
 
-    console.log('[bulk] Sheets:', workbook.SheetNames);
+    const sheetNames = workbook?.SheetNames || [];
+    console.log('[bulk] Sheets:', sheetNames);
 
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    if (!workbook?.Sheets || sheetNames.length === 0) {
+      throw new Error('File Excel tidak bisa dibaca (tidak ada sheet). Pastikan file .xlsx valid.');
+    }
+    const sheet = workbook.Sheets[sheetNames[0]];
+    if (!sheet) {
+      throw new Error('Sheet Excel tidak ditemukan di file.');
+    }
+    // raw:true keeps numbers/dates as real values (not formatted strings)
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
     console.log('[bulk] Rows:', rows.length, 'cols:', rows[0]?.length);
     console.table(rows.slice(0, 3));
 
@@ -754,38 +806,38 @@ document.getElementById('bulkFileInput').addEventListener('change', async (e) =>
       throw new Error('Template Excel kosong atau tidak valid.');
     }
 
-    // --- 3. Parse header row for periods ---
-    const periods = [];
+    // --- 3. Parse header row for periods (index-aligned with data cols 1..) ---
+    const periods = []; // periods[i] corresponds to Excel column i+1
     for (let col = 1; col < rows[0].length; col++) {
       const cell = rows[0][col];
-      if (!cell || cell.toString().trim() === '') break;
+      if (cell === '' || cell == null) break;
       const period = parseDateToPeriod(cell);
-      if (period) {
-        periods.push(period);
-        console.log(`[bulk] Period col ${col + 1}:`, period);
-      }
+      periods.push(period);
+      if (period) console.log(`[bulk] Period col ${col + 1}:`, period);
+      else console.warn(`[bulk] Unparsable header col ${col + 1}:`, cell);
     }
 
-    if (periods.length === 0) {
+    if (!periods.some(Boolean)) {
       throw new Error('Tidak bisa deteksi periode bulan dari template.');
     }
 
-    // --- 4. Section 1: Total Interaction (rows 1-5) ---
+    // --- 4. Section 1: Total Interaction (rows 1–5: channels + optional Total) ---
     const records = [];
 
-    for (let row = 1; row <= 5; row++) {
+    for (let row = 1; row <= 5 && row < rows.length; row++) {
       const channelName = rows[row]?.[0];
-      const dbChannel = mapChannelName(channelName || '');
-      if (!dbChannel || dbChannel === 'Manual') continue; // skip Total row and unknown
+      const dbChannel = mapChannelName(channelName);
+      if (!dbChannel) continue; // skip Total / unknown
 
       for (let col = 0; col < periods.length; col++) {
+        const period = periods[col];
+        if (!period) continue;
         const value = rows[row]?.[col + 1];
         if (value === '' || value === null || value === undefined) continue;
-        const total = parseFloat(value);
+        const total = parseBulkNumber(value);
         if (isNaN(total) || total < 0) continue;
 
-        const period = periods[col];
-        records.push({
+        upsertBulkRecord(records, {
           bulan: period.bulan,
           tahun: period.tahun,
           channel: dbChannel,
@@ -823,22 +875,24 @@ document.getElementById('bulkFileInput').addEventListener('change', async (e) =>
         }
         if (!headerFound) continue;
 
-        const dbChannel = mapChannelName(firstCell || '');
-        if (!dbChannel || dbChannel === 'Manual') continue;
+        const dbChannel = mapChannelName(firstCell);
+        // Response Time only applies to Email & WhatsApp Business (not Manual/Voice)
+        if (dbChannel !== 'Email' && dbChannel !== 'WhatsApp') continue;
 
         console.log('[bulk] Processing response data for:', dbChannel, 'at row', row + 1);
 
         for (let col = 0; col < periods.length; col++) {
+          const period = periods[col];
+          if (!period) continue;
           const value = rows[row]?.[col + 1];
           if (value === '' || value === null || value === undefined) continue;
-          const rt = parseFloat(value);
-          if (isNaN(rt)) continue;
+          const rt = parseBulkNumber(value);
+          if (isNaN(rt) || rt < 0) continue;
 
-          const period = periods[col];
           const existing = records.find(r =>
             r.bulan === period.bulan && r.tahun === period.tahun && r.channel === dbChannel
           );
-          if (existing && (dbChannel === 'Email' || dbChannel === 'WhatsApp')) {
+          if (existing) {
             existing.responseTime = rt;
             console.log(`[bulk] Set responseTime=${rt} for ${dbChannel} ${period.bulan}/${period.tahun}`);
           }

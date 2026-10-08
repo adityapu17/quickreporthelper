@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS channel_records (
   aht REAL,
   scr REAL,
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL
+  updatedAt TEXT NOT NULL,
+  UNIQUE(bulan, tahun, channel)
 );
 
 CREATE TABLE IF NOT EXISTS produk_records (

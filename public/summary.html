@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Summary Interaction — Intan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/shell.css">
@@ -193,6 +194,8 @@
         <div class="form-actions">
           <button type="submit" class="primary" id="submitChannelBtn">Simpan Data</button>
           <button type="button" class="ghost" id="resetChannelBtn">Reset Form</button>
+          <button type="button" class="ghost" id="bulkUploadChannelBtn" style="margin-left:auto;">📊 Upload Bulk Excel</button>
+          <input type="file" id="bulkFileInput" accept=".xlsx,.xls" style="display:none;">
         </div>
       </form>
     </div></div>
@@ -662,6 +665,202 @@ function renderAll(){
   renderTableProduk();
   renderDashboard();
 }
+
+// ---------- bulk upload (channel) ----------
+const MONTH_MAP = { '01':'Januari','02':'Februari','03':'Maret','04':'April','05':'Mei','06':'Juni','07':'Juli','08':'Agustus','09':'September','10':'Oktober','11':'November','12':'Desember' };
+const BULK_CHANNELS = ['Voice','Email','Whatsapp Group (0811-9809-600)','Whatsapp Business (0811-9590-159)'];
+const BULK_RESPONSE_ROW_LABEL = 'Handling & Response Time periode tahun 2026 - dalam Menit';
+
+// Map Excel channel names to DB channel names
+function mapChannelName(name) {
+  name = name.trim().toLowerCase();
+  if (name.includes('voice') || name.includes('telepon')) return 'Voice';
+  if (name.includes('email') || name.includes('mail')) return 'Email';
+  if (name.includes('whatsapp')) return 'WhatsApp';
+  return null;
+}
+
+// Parse Excel serial date number to {bulan, tahun}
+function excelDateToPeriod(serial) {
+  if (typeof serial !== 'number') return null;
+  const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+  return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
+}
+
+// Extract month from date string like "2026-01-01" or "Jan 2026"
+function parseDateToPeriod(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
+  // Try month name parsing
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const lower = dateStr.toLowerCase();
+  for (let i = 0; i < months.length; i++) {
+    if (lower.includes(months[i])) {
+      const yearMatch = dateStr.match(/(\d{4})/);
+      return { bulan: i + 1, tahun: yearMatch ? parseInt(yearMatch[1]) : 2026 };
+    }
+  }
+  return null;
+}
+
+document.getElementById('bulkUploadChannelBtn').addEventListener('click', () => {
+  document.getElementById('bulkFileInput').click();
+});
+
+document.getElementById('bulkFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    const data = new Uint8Array(evt.target.result);
+    let workbook;
+    try {
+      workbook = XLSX.read(data, { type: 'array', bookSheets: true, sheetNames: true });
+    } catch (err) {
+      toast('Gagal membaca file Excel: ' + err.message, true);
+      return;
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+
+    if (rows.length < 2) {
+      toast('Template Excel kosong atau tidak valid', true);
+      return;
+    }
+
+    // --- Section 1: Total Interaction ---
+    // Row 0 = header: ["Channel", Jan, Feb, ..., Dec]
+    // Rows 1-4 = [Voice, Email, Whatsapp Group, Whatsapp Business]
+    // Row 5 = Total (skip — it's the sum)
+
+    // Parse header row to get periods
+    const headerRow = rows[0].map(v => v != null && v.toString().trim());
+    const periods = [];
+    for (let col = 1; col < headerRow.length; col++) {
+      const cell = rows[0][col];
+      if (!cell || cell.toString().trim() === '') break;
+      const period = typeof cell === 'number' ? excelDateToPeriod(cell) : parseDateToPeriod(cell.toString());
+      if (period) periods.push(period);
+    }
+
+    if (periods.length === 0) {
+      toast('Tidak bisa deteksi periode bulan dari template', true);
+      return;
+    }
+
+    // Build records from section 1
+    const records = [];
+
+    for (let row = 1; row <= 5; row++) {
+      const channelName = rows[row][0];
+      const dbChannel = mapChannelName(channelName);
+      if (!dbChannel || dbChannel === 'Manual') continue; // skip Total row and unknown
+
+      for (let col = 0; col < periods.length; col++) {
+        const value = rows[row][col + 1];
+        if (value === '' || value === null || value === undefined) continue;
+        const total = parseFloat(value);
+        if (isNaN(total) || total < 0) continue;
+
+        const period = periods[col];
+        records.push({
+          bulan: period.bulan,
+          tahun: period.tahun,
+          channel: dbChannel,
+          totalInteraksi: total,
+          responseTime: null,
+          aht: null,
+          scr: null,
+        });
+      }
+    }
+
+    // --- Section 2: Handling & Response Time ---
+    // Find the response time section (starts after a blank row or the label row)
+    let responseStartRow = -1;
+    for (let row = 6; row < rows.length; row++) {
+      const label = rows[row][0];
+      if (label && label.toString().includes('Handling & Response Time')) {
+        responseStartRow = row + 1; // header below label, data starts after
+        break;
+      }
+    }
+
+    if (responseStartRow > 0) {
+      // Response section has its own header row (row with Channel + dates)
+      // and then data rows for each channel
+      let headerFound = false;
+      for (let row = responseStartRow; row < rows.length; row++) {
+        const firstCell = rows[row][0];
+        if (!firstCell || firstCell.toString().trim() === '') continue;
+
+        // Detect header: "Channel" in first cell
+        if (firstCell.toString().toLowerCase().includes('channel')) {
+          headerFound = true;
+          continue;
+        }
+
+        if (!headerFound) continue;
+
+        const dbChannel = mapChannelName(firstCell);
+        if (!dbChannel || dbChannel === 'Manual') continue; // skip Total
+
+        for (let col = 0; col < periods.length; col++) {
+          const value = rows[row][col + 1];
+          if (value === '' || value === null || value === undefined) continue;
+          const rt = parseFloat(value);
+          if (isNaN(rt)) continue;
+
+          const period = periods[col];
+          // Update the matching record (or create if missing)
+          const existing = records.find(r => r.bulan === period.bulan && r.tahun === period.tahun && r.channel === dbChannel);
+          if (existing) {
+            if (dbChannel === 'Email' || dbChannel === 'WhatsApp') {
+              existing.responseTime = rt;
+            }
+            // Voice AHT is in the same section — we'll handle below if separate
+          }
+        }
+      }
+
+      // Check if there's also a Voice AHT/SCR section
+      // Template row 10-12 shows Voice response time (same as handling time for non-voice)
+      // and row 11-13 shows Email response time, row 12-13 shows WhatsApp Business
+    }
+
+    if (records.length === 0) {
+      toast('Tidak ada data valid ditemukan di template Excel', true);
+      return;
+    }
+
+    // Confirm with user
+    const confirmed = confirm(`Import ${records.length} record dari Excel?\n\nData existing dengan periode & channel yang sama akan diperbarui.`);
+    if (!confirmed) {
+      e.target.value = '';
+      return;
+    }
+
+    const btn = document.getElementById('bulkUploadChannelBtn');
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    try {
+      const result = await apiSend('/api/summary/channel/bulk', 'POST', { records });
+      toast(`Bulk upload selesai: ${result.inserted} baru, ${result.updated} diperbarui`);
+      await loadAll();
+    } catch (err) {
+      toast('Gagal bulk upload: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📊 Upload Bulk Excel';
+      e.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
 
 updateChannelConditionalFields();
 loadAll();

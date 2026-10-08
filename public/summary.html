@@ -684,19 +684,24 @@ function mapChannelName(name) {
   return null;
 }
 
-// Parse Excel serial date number to {bulan, tahun}
+// Parse Excel serial date number to {bulan, tahun} using UTC so WIB (UTC+7)
+// does not shift month-start headers back one day (Jan → Dec).
 function excelDateToPeriod(serial) {
   if (typeof serial !== 'number' || !isFinite(serial)) return null;
-  const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+  const utc = Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000;
+  const d = new Date(utc);
   if (isNaN(d.getTime())) return null;
-  return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
+  return { bulan: d.getUTCMonth() + 1, tahun: d.getUTCFullYear() };
 }
 
 // Extract month from Date / Excel serial / string header cell
 function parseDateToPeriod(cell) {
   if (cell == null || cell === '') return null;
   if (cell instanceof Date && !isNaN(cell.getTime())) {
-    return { bulan: cell.getMonth() + 1, tahun: cell.getFullYear() };
+    // SheetJS cellDates often lands ~seconds before local midnight in TZ≠UTC,
+    // so getMonth() can report the previous month. Shift to UTC noon.
+    const noon = new Date(cell.getTime() + 12 * 60 * 60 * 1000);
+    return { bulan: noon.getUTCMonth() + 1, tahun: noon.getUTCFullYear() };
   }
   if (typeof cell === 'number') return excelDateToPeriod(cell);
   const s = cell.toString().trim();
@@ -782,7 +787,8 @@ document.getElementById('bulkFileInput').addEventListener('change', async (e) =>
     const bytes = new Uint8Array(arrayBuffer);
     let workbook;
     try {
-      workbook = XLSX.read(bytes, { type: 'array', cellDates: true });
+      // Keep Excel dates as serial numbers (cellDates:false) — safer for month headers in WIB.
+      workbook = XLSX.read(bytes, { type: 'array', cellDates: false });
     } catch (err) {
       throw new Error('Gagal parse Excel: ' + err.message);
     }

@@ -667,9 +667,7 @@ function renderAll(){
 }
 
 // ---------- bulk upload (channel) ----------
-const MONTH_MAP = { '01':'Januari','02':'Februari','03':'Maret','04':'April','05':'Mei','06':'Juni','07':'Juli','08':'Agustus','09':'September','10':'Oktober','11':'November','12':'Desember' };
 const BULK_CHANNELS = ['Voice','Email','Whatsapp Group (0811-9809-600)','Whatsapp Business (0811-9590-159)'];
-const BULK_RESPONSE_ROW_LABEL = 'Handling & Response Time periode tahun 2026 - dalam Menit';
 
 // Map Excel channel names to DB channel names
 function mapChannelName(name) {
@@ -687,21 +685,33 @@ function excelDateToPeriod(serial) {
   return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
 }
 
-// Extract month from date string like "2026-01-01" or "Jan 2026"
-function parseDateToPeriod(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
+// Extract month from date string or number
+function parseDateToPeriod(cell) {
+  if (!cell) return null;
+  if (typeof cell === 'number') return excelDateToPeriod(cell);
+  const s = cell.toString().trim();
+  if (!s) return null;
+  const d = new Date(s);
   if (!isNaN(d.getTime())) return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
-  // Try month name parsing
   const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-  const lower = dateStr.toLowerCase();
+  const lower = s.toLowerCase();
   for (let i = 0; i < months.length; i++) {
     if (lower.includes(months[i])) {
-      const yearMatch = dateStr.match(/(\d{4})/);
+      const yearMatch = s.match(/(\d{4})/);
       return { bulan: i + 1, tahun: yearMatch ? parseInt(yearMatch[1]) : 2026 };
     }
   }
   return null;
+}
+
+// Read file as ArrayBuffer wrapped in a promise
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 document.getElementById('bulkUploadChannelBtn').addEventListener('click', () => {
@@ -711,57 +721,65 @@ document.getElementById('bulkUploadChannelBtn').addEventListener('click', () => 
 document.getElementById('bulkFileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  e.target.value = ''; // reset so same file can be selected again
 
-  const reader = new FileReader();
-  reader.onload = async (evt) => {
-    const data = new Uint8Array(evt.target.result);
+  const btn = document.getElementById('bulkUploadChannelBtn');
+  btn.disabled = true;
+  btn.textContent = 'Memproses…';
+
+  try {
+    // --- 1. Verify SheetJS loaded ---
+    if (typeof XLSX === 'undefined') {
+      throw new Error('SheetJS (XLSX) gagal dimuat dari CDN. Cek koneksi / blokir ad-blocker.');
+    }
+    console.log('[bulk] SheetJS ready, file:', file.name, file.size, 'bytes');
+
+    // --- 2. Read file ---
+    const arrayBuffer = await readFileAsArrayBuffer(file);
     let workbook;
     try {
-      workbook = XLSX.read(data, { type: 'array', bookSheets: true, sheetNames: true });
+      workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', bookSheets: true, sheetNames: true });
     } catch (err) {
-      toast('Gagal membaca file Excel: ' + err.message, true);
-      return;
+      throw new Error('Gagal parse Excel: ' + err.message);
     }
 
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+    console.log('[bulk] Sheets:', workbook.SheetNames);
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    console.log('[bulk] Rows:', rows.length, 'cols:', rows[0]?.length);
+    console.table(rows.slice(0, 3));
 
     if (rows.length < 2) {
-      toast('Template Excel kosong atau tidak valid', true);
-      return;
+      throw new Error('Template Excel kosong atau tidak valid.');
     }
 
-    // --- Section 1: Total Interaction ---
-    // Row 0 = header: ["Channel", Jan, Feb, ..., Dec]
-    // Rows 1-4 = [Voice, Email, Whatsapp Group, Whatsapp Business]
-    // Row 5 = Total (skip — it's the sum)
-
-    // Parse header row to get periods
-    const headerRow = rows[0].map(v => v != null && v.toString().trim());
+    // --- 3. Parse header row for periods ---
     const periods = [];
-    for (let col = 1; col < headerRow.length; col++) {
+    for (let col = 1; col < rows[0].length; col++) {
       const cell = rows[0][col];
       if (!cell || cell.toString().trim() === '') break;
-      const period = typeof cell === 'number' ? excelDateToPeriod(cell) : parseDateToPeriod(cell.toString());
-      if (period) periods.push(period);
+      const period = parseDateToPeriod(cell);
+      if (period) {
+        periods.push(period);
+        console.log(`[bulk] Period col ${col + 1}:`, period);
+      }
     }
 
     if (periods.length === 0) {
-      toast('Tidak bisa deteksi periode bulan dari template', true);
-      return;
+      throw new Error('Tidak bisa deteksi periode bulan dari template.');
     }
 
-    // Build records from section 1
+    // --- 4. Section 1: Total Interaction (rows 1-5) ---
     const records = [];
 
     for (let row = 1; row <= 5; row++) {
-      const channelName = rows[row][0];
-      const dbChannel = mapChannelName(channelName);
+      const channelName = rows[row]?.[0];
+      const dbChannel = mapChannelName(channelName || '');
       if (!dbChannel || dbChannel === 'Manual') continue; // skip Total row and unknown
 
       for (let col = 0; col < periods.length; col++) {
-        const value = rows[row][col + 1];
+        const value = rows[row]?.[col + 1];
         if (value === '' || value === null || value === undefined) continue;
         const total = parseFloat(value);
         if (isNaN(total) || total < 0) continue;
@@ -779,87 +797,83 @@ document.getElementById('bulkFileInput').addEventListener('change', async (e) =>
       }
     }
 
-    // --- Section 2: Handling & Response Time ---
-    // Find the response time section (starts after a blank row or the label row)
+    console.log('[bulk] Section 1 records:', records.length);
+
+    // --- 5. Section 2: Handling & Response Time ---
     let responseStartRow = -1;
     for (let row = 6; row < rows.length; row++) {
-      const label = rows[row][0];
+      const label = rows[row]?.[0];
       if (label && label.toString().includes('Handling & Response Time')) {
-        responseStartRow = row + 1; // header below label, data starts after
+        responseStartRow = row + 1;
+        console.log('[bulk] Response section found at row', responseStartRow);
         break;
       }
     }
 
     if (responseStartRow > 0) {
-      // Response section has its own header row (row with Channel + dates)
-      // and then data rows for each channel
       let headerFound = false;
       for (let row = responseStartRow; row < rows.length; row++) {
-        const firstCell = rows[row][0];
+        const firstCell = rows[row]?.[0];
         if (!firstCell || firstCell.toString().trim() === '') continue;
 
-        // Detect header: "Channel" in first cell
         if (firstCell.toString().toLowerCase().includes('channel')) {
           headerFound = true;
+          console.log('[bulk] Response header at row', row + 1);
           continue;
         }
-
         if (!headerFound) continue;
 
-        const dbChannel = mapChannelName(firstCell);
-        if (!dbChannel || dbChannel === 'Manual') continue; // skip Total
+        const dbChannel = mapChannelName(firstCell || '');
+        if (!dbChannel || dbChannel === 'Manual') continue;
+
+        console.log('[bulk] Processing response data for:', dbChannel, 'at row', row + 1);
 
         for (let col = 0; col < periods.length; col++) {
-          const value = rows[row][col + 1];
+          const value = rows[row]?.[col + 1];
           if (value === '' || value === null || value === undefined) continue;
           const rt = parseFloat(value);
           if (isNaN(rt)) continue;
 
           const period = periods[col];
-          // Update the matching record (or create if missing)
-          const existing = records.find(r => r.bulan === period.bulan && r.tahun === period.tahun && r.channel === dbChannel);
-          if (existing) {
-            if (dbChannel === 'Email' || dbChannel === 'WhatsApp') {
-              existing.responseTime = rt;
-            }
-            // Voice AHT is in the same section — we'll handle below if separate
+          const existing = records.find(r =>
+            r.bulan === period.bulan && r.tahun === period.tahun && r.channel === dbChannel
+          );
+          if (existing && (dbChannel === 'Email' || dbChannel === 'WhatsApp')) {
+            existing.responseTime = rt;
+            console.log(`[bulk] Set responseTime=${rt} for ${dbChannel} ${period.bulan}/${period.tahun}`);
           }
         }
       }
-
-      // Check if there's also a Voice AHT/SCR section
-      // Template row 10-12 shows Voice response time (same as handling time for non-voice)
-      // and row 11-13 shows Email response time, row 12-13 shows WhatsApp Business
     }
 
     if (records.length === 0) {
-      toast('Tidak ada data valid ditemukan di template Excel', true);
-      return;
+      throw new Error('Tidak ada data valid ditemukan di template Excel.');
     }
 
-    // Confirm with user
-    const confirmed = confirm(`Import ${records.length} record dari Excel?\n\nData existing dengan periode & channel yang sama akan diperbarui.`);
+    console.log('[bulk] Final records:', records.length);
+    console.table(records.slice(0, 5));
+
+    // --- 6. Confirm & upload ---
+    const confirmed = confirm(
+      `Import ${records.length} record dari Excel?\n\n` +
+      'Data existing dengan periode & channel yang sama akan diperbarui.'
+    );
     if (!confirmed) {
-      e.target.value = '';
+      toast('Bulk upload dibatalkan.');
       return;
     }
 
-    const btn = document.getElementById('bulkUploadChannelBtn');
-    btn.disabled = true;
-    btn.textContent = 'Importing…';
-    try {
-      const result = await apiSend('/api/summary/channel/bulk', 'POST', { records });
-      toast(`Bulk upload selesai: ${result.inserted} baru, ${result.updated} diperbarui`);
-      await loadAll();
-    } catch (err) {
-      toast('Gagal bulk upload: ' + err.message, true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '📊 Upload Bulk Excel';
-      e.target.value = '';
-    }
-  };
-  reader.readAsArrayBuffer(file);
+    btn.textContent = 'Mengirim…';
+    const result = await apiSend('/api/summary/channel/bulk', 'POST', { records });
+    toast(`Bulk upload selesai: ${result.inserted} baru, ${result.updated} diperbarui`);
+    await loadAll();
+  } catch (err) {
+    console.error('[bulk] Error:', err);
+    toast('Gagal bulk upload: ' + (err.message || String(err)), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📊 Upload Bulk Excel';
+  }
 });
 
 updateChannelConditionalFields();

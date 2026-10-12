@@ -186,7 +186,7 @@ document.addEventListener('click', (e) => { const b = document.getElementById('b
 document.getElementById('btn-logout').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login'; });
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email) document.getElementById('whoami').textContent = d.email; }).catch(() => {});
 
-const MONTHS = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember';
+const MONTHS = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
 // State untuk menyimpan data roster yang sedang diedit
 let editingRosterId = null;
@@ -274,7 +274,7 @@ document.getElementById('rosterForm').addEventListener('submit', async (e) => {
   }
 
   // Hitung jumlah hari dalam bulan
-  const hariDalamBulan = new Date(tahun, bulan, 0).getDate();
+  const hariDalamBulan = new Date(tahun, bulan - 1, 0).getDate();
 
   // Hitung HK dan HL
   const totalLibur = hariLiburNasional + cutiBersama;

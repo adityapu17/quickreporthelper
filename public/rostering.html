@@ -127,7 +127,7 @@
 
         <div class="field">
           <label for="rosterJumlahKaryawan">Jumlah Karyawan</label>
-          <input type="number" id="rosterJumlahKaryawan" min="1" placeholder="0" required>
+          <input type="number" id="rosterJumlahKaryawan" min="1" placeholder="" required>
         </div>
 
         <div class="field">
@@ -274,7 +274,7 @@ document.getElementById('rosterForm').addEventListener('submit', async (e) => {
   }
 
   // Hitung jumlah hari dalam bulan
-  const hariDalamBulan = new Date(tahun, bulan - 1, 0).getDate();
+  const hariDalamBulan = new Date(tahun, bulan, 0).getDate();
 
   // Hitung HK dan HL
   const totalLibur = hariLiburNasional + cutiBersama;

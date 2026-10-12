@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+// Functions/rostering.js — serves rostering.html through auth middleware
+// HTML embedded to avoid filesystem reads in Workers
+
+const ROSTERING_HTML = `<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -196,8 +199,6 @@ async function loadRosterings() {
   try {
     const response = await fetch('/api/rostering');
     const rosterings = await response.json();
-
-    // Untuk sekarang kita hanya menampilkan di console, nanti bisa ditambahkan UI untuk manage rostering
     console.log('Available rosterings:', rosterings);
   } catch (error) {
     console.error('Failed to load rosterings:', error);
@@ -209,24 +210,11 @@ async function saveRosterings(bulan, tahun, jumlahKaryawan, hariLiburNasional, c
   try {
     const response = await fetch('/api/rostering', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        bulan,
-        tahun,
-        jumlah_karyawan: jumlahKaryawan,
-        hari_libur_nasional: hariLiburNasional,
-        cuti_bersama: cutiBersama
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bulan, tahun, jumlah_karyawan: jumlahKaryawan, hari_libur_nasional: hariLiburNasional, cuti_bersama: cutiBersama })
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to save rostering');
-    }
-
-    const result = await response.json();
-    return result;
+    if (!response.ok) throw new Error('Failed to save rostering');
+    return await response.json();
   } catch (error) {
     throw new Error('Gagal menyimpan rostering: ' + error.message);
   }
@@ -235,24 +223,12 @@ async function saveRosterings(bulan, tahun, jumlahKaryawan, hariLiburNasional, c
 // Fungsi untuk memperbarui rostering
 async function updateRosterings(id, bulan, tahun, jumlahKaryawan, hariLiburNasional, cutiBersama) {
   try {
-    const response = await fetch(`/api/rostering/${id}`, {
+    const response = await fetch('/api/rostering/' + id, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        bulan,
-        tahun,
-        jumlah_karyawan: jumlahKaryawan,
-        hari_libur_nasional: hariLiburNasional,
-        cuti_bersama: cutiBersama
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bulan, tahun, jumlah_karyawan: jumlahKaryawan, hari_libur_nasional: hariLiburNasional, cuti_bersama: cutiBersama })
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to update rostering');
-    }
-
+    if (!response.ok) throw new Error('Failed to update rostering');
     return await response.json();
   } catch (error) {
     throw new Error('Gagal memperbarui rostering: ' + error.message);
@@ -273,8 +249,8 @@ document.getElementById('rosterForm').addEventListener('submit', async (e) => {
     return;
   }
 
-  // Hitung jumlah hari dalam bulan
-  const hariDalamBulan = new Date(tahun, bulan, 0).getDate();
+  // Hitung jumlah hari dalam bulan (bulan 1-indexed → JS Date 0-indexed)
+  const hariDalamBulan = new Date(tahun, bulan - 1, 0).getDate();
 
   // Hitung HK dan HL
   const totalLibur = hariLiburNasional + cutiBersama;
@@ -282,55 +258,45 @@ document.getElementById('rosterForm').addEventListener('submit', async (e) => {
   const hlPerKaryawan = totalLibur;
 
   try {
-    // Simpan atau update rostering ke backend
     let result;
     if (editingRosterId) {
       result = await updateRosterings(editingRosterId, bulan, tahun, jumlahKaryawan, hariLiburNasional, cutiBersama);
       alert('Rostering berhasil diperbarui!');
-      editingRosterId = null; // Reset editing state
+      editingRosterId = null;
     } else {
       result = await saveRosterings(bulan, tahun, jumlahKaryawan, hariLiburNasional, cutiBersama);
       alert('Rostering berhasil disimpan!');
     }
 
-    // Tampilkan hasil
     document.getElementById('rosterResult').style.display = 'block';
 
-    // Ringkasan statistik
     const statsGrid = document.getElementById('rosterStats');
-    statsGrid.innerHTML = `
-      <div class="stat"><div class="label">Bulan</div><div class="value">${MONTHS[bulan]} ${tahun}</div></div>
-      <div class="stat"><div class="label">Hari dalam Bulan</div><div class="value">${hariDalamBulan}</div></div>
-      <div class="stat"><div class="label">Hari Libur Nasional</div><div class="value">${hariLiburNasional}</div></div>
-      <div class="stat"><div class="label">Cuti Bersama</div><div class="value">${cutiBersama}</div></div>
-      <div class="stat"><div class="label">Total Hari Libur</div><div class="value">${totalLibur}</div></div>
-      <div class="stat"><div class="label">Hari Kerja (HK) per Karyawan</div><div class="value">${hkPerKaryawan}</div></div>
-      <div class="stat"><div class="label">Hari Libur (HL) per Karyawan</div><div class="value">${hlPerKaryawan}</div></div>
-      <div class="stat"><div class="label">Total Karyawan</div><div class="value">${jumlahKaryawan}</div></div>
-      <div class="stat"><div class="label">Total HK Seluruh Karyawan</div><div class="value">${hkPerKaryawan * jumlahKaryawan}</div></div>
-    `;
+    statsGrid.innerHTML = 
+      '<div class="stat"><div class="label">Bulan</div><div class="value">' + MONTHS[bulan] + ' ' + tahun + '</div></div>' +
+      '<div class="stat"><div class="label">Hari dalam Bulan</div><div class="value">' + hariDalamBulan + '</div></div>' +
+      '<div class="stat"><div class="label">Hari Libur Nasional</div><div class="value">' + hariLiburNasional + '</div></div>' +
+      '<div class="stat"><div class="label">Cuti Bersama</div><div class="value">' + cutiBersama + '</div></div>' +
+      '<div class="stat"><div class="label">Total Hari Libur</div><div class="value">' + totalLibur + '</div></div>' +
+      '<div class="stat"><div class="label">Hari Kerja (HK) per Karyawan</div><div class="value">' + hkPerKaryawan + '</div></div>' +
+      '<div class="stat"><div class="label">Hari Libur (HL) per Karyawan</div><div class="value">' + hlPerKaryawan + '</div></div>' +
+      '<div class="stat"><div class="label">Total Karyawan</div><div class="value">' + jumlahKaryawan + '</div></div>' +
+      '<div class="stat"><div class="label">Total HK Seluruh Karyawan</div><div class="value">' + (hkPerKaryawan * jumlahKaryawan) + '</div></div>';
 
-    // Isi tabel roster
     const tableBody = document.getElementById('rosterTableBody');
     tableBody.innerHTML = '';
 
     for (let i = 1; i <= jumlahKaryawan; i++) {
       const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${i}</td>
-        <td><input type="text" placeholder="Nama Karyawan ${i}" class="karyawan-input"></td>
-        <td class="hk-value">${hkPerKaryawan}</td>
-        <td class="hl-value">${hlPerKaryawan}</td>
-        <td class="total-value">${hariDalamBulan}</td>
-        <td>
-          <button class="btn-ghost edit-btn">Edit</button>
-          <button class="btn-danger delete-btn">Hapus</button>
-        </td>
-      `;
+      row.innerHTML = 
+        '<td>' + i + '</td>' +
+        '<td><input type="text" placeholder="Nama Karyawan ' + i + '" class="karyawan-input"></td>' +
+        '<td class="hk-value">' + hkPerKaryawan + '</td>' +
+        '<td class="hl-value">' + hlPerKaryawan + '</td>' +
+        '<td class="total-value">' + hariDalamBulan + '</td>' +
+        '<td><button class="btn-ghost edit-btn">Edit</button><button class="btn-danger delete-btn">Hapus</button></td>';
       tableBody.appendChild(row);
     }
 
-    // Tambah event listener untuk edit/delete buttons
     tableBody.querySelectorAll('.edit-btn').forEach((button, index) => {
       button.addEventListener('click', () => {
         const row = button.closest('tr');
@@ -350,7 +316,6 @@ document.getElementById('rosterForm').addEventListener('submit', async (e) => {
       button.addEventListener('click', () => {
         if (confirm('Apakah Anda yakin ingin menghapus karyawan ini?')) {
           button.closest('tr').remove();
-          // Update nomor urut
           updateRowNumbers();
         }
       });
@@ -371,11 +336,10 @@ function updateRowNumbers() {
 document.getElementById('resetRosterBtn').addEventListener('click', () => {
   document.getElementById('rosterForm').reset();
   document.getElementById('rosterResult').style.display = 'none';
-  editingRosterId = null; // Reset editing state
+  editingRosterId = null;
 });
 
 document.getElementById('exportExcelBtn').addEventListener('click', () => {
-  // Implementasi export ke Excel akan ditambahkan di sini
   alert('Fitur export ke Excel akan segera tersedia!');
 });
 
@@ -383,8 +347,16 @@ document.getElementById('printRosterBtn').addEventListener('click', () => {
   window.print();
 });
 
-// Load rosterings saat halaman dimuat
 loadRosterings();
 </script>
 </body>
-</html>
+</html>`;
+
+export async function onRequestGet(context) {
+  return new Response(ROSTERING_HTML, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    },
+  });
+}

@@ -1,4 +1,9 @@
-# Note: this project deploys as Cloudflare Pages (not native Workers), so
+# Pages dev needs to know the static-assets directory; production deploys set
+# this in Dashboard > Build settings, but having it here makes `wrangler pages dev`
+# work identically to how Pages serves it (static files from public/ + functions).
+name = "quickreporthelper"
+compatibility_date = "2024-10-12"
+pages_build_output_dir = "public"
 # Pages ignores `main`/`[assets]` here — routing comes from the `functions/`
 # folder (Pages Functions) and static files from `public/` (configured in
 # the dashboard's Build settings, not here). The D1 binding below is for

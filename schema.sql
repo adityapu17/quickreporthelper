@@ -105,3 +105,15 @@ CREATE TABLE IF NOT EXISTS produk_records (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL
 );
+
+-- Rostering table for monthly workforce planning
+CREATE TABLE IF NOT EXISTS rosterings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bulan INTEGER NOT NULL,
+  tahun INTEGER NOT NULL,
+  jumlah_karyawan INTEGER NOT NULL,
+  hari_libur_nasional INTEGER DEFAULT 0,
+  cuti_bersama INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(bulan, tahun)
+);

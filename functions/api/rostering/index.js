@@ -18,11 +18,11 @@ export async function onRequestPost(context) {
       return Response.json({ error: 'Bulan, tahun, dan jumlah karyawan wajib diisi' }, { status: 400 });
     }
 
-    const { results } = await env.DB.prepare(
+    const res = await env.DB.prepare(
       'INSERT INTO rosterings (bulan, tahun, jumlah_karyawan, hari_libur_nasional, cuti_bersama) VALUES (?, ?, ?, ?, ?)'
-    ).bind(bulan, tahun, jumlah_karyawan, hari_libur_nasional || 0, cuti_bersama || 0);
+    ).bind(bulan, tahun, jumlah_karyawan, hari_libur_nasional || 0, cuti_bersama || 0).run();
 
-    return Response.json({ id: results.last_insert_rowid, success: true }, { status: 201 });
+    return Response.json({ id: res.meta.last_row_id, success: true }, { status: 201 });
   } catch (error) {
     return Response.json({ error: 'Gagal menyimpan rostering: ' + error.message }, { status: 500 });
   }

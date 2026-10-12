@@ -9,7 +9,7 @@ export async function onRequestGet(context) {
 
   const { results } = await env.DB.prepare(
     'SELECT id, bulan, tahun, jumlah_karyawan, hari_libur_nasional, cuti_bersama, created_at FROM rosterings WHERE id = ?'
-  ).bind(id);
+  ).bind(id).all();
 
   if (!results || results.length === 0) {
     return Response.json({ error: 'Rostering tidak ditemukan' }, { status: 404 });
@@ -34,11 +34,11 @@ export async function onRequestPut(context) {
       return Response.json({ error: 'Bulan, tahun, dan jumlah karyawan wajib diisi' }, { status: 400 });
     }
 
-    const { results } = await env.DB.prepare(
+    const res = await env.DB.prepare(
       'UPDATE rosterings SET bulan = ?, tahun = ?, jumlah_karyawan = ?, hari_libur_nasional = ?, cuti_bersama = ? WHERE id = ?'
-    ).bind(bulan, tahun, jumlah_karyawan, hari_libur_nasional || 0, cuti_bersama || 0, id);
+    ).bind(bulan, tahun, jumlah_karyawan, hari_libur_nasional || 0, cuti_bersama || 0, id).run();
 
-    if (results.changes === 0) {
+    if (res.meta.changes === 0) {
       return Response.json({ error: 'Rostering tidak ditemukan atau tidak ada perubahan' }, { status: 404 });
     }
 
@@ -48,7 +48,7 @@ export async function onRequestPut(context) {
   }
 }
 
-// DELETE /api/rostering/[id] — delete a specific rostering
+// DELETE /api/rostering/[id] — delete a specific rostering (and its shifts)
 export async function onRequestDelete(context) {
   const { env } = context;
   const { id } = context.params;
@@ -58,11 +58,16 @@ export async function onRequestDelete(context) {
   }
 
   try {
-    const { results } = await env.DB.prepare(
-      'DELETE FROM rosterings WHERE id = ?'
-    ).bind(id);
+    // First delete shifts (FK constraint would fail otherwise)
+    await env.DB.prepare(
+      'DELETE FROM roster_shifts WHERE rostering_id = ?'
+    ).bind(id).run();
 
-    if (results.changes === 0) {
+    const res = await env.DB.prepare(
+      'DELETE FROM rosterings WHERE id = ?'
+    ).bind(id).run();
+
+    if (res.meta.changes === 0) {
       return Response.json({ error: 'Rostering tidak ditemukan' }, { status: 404 });
     }
 

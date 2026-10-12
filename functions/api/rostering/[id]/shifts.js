@@ -57,7 +57,7 @@ export async function onRequestPost(context) {
         shift.catatan || null
       ).run();
 
-      if (result.changes > 0) successCount++;
+      if (result.meta.changes > 0) successCount++;
     }
 
     return Response.json({ success: true, saved: successCount }, { status: 201 });

@@ -434,8 +434,8 @@ document.getElementById('resetRosterBtn').addEventListener('click', () => {
   editingRosterId = null;
 });
 
-document.getElementById('exportExcelBtn').addEventEventListener('click', () => {
-  alert('Fitur export ke Excel akan segera tersedia!');
+document.getElementById('exportExcelBtn').addEventListener('click', () => {
+  alert('Fitur export ke Excel akan segeri tersedia!');
 });
 
 document.getElementById('printRosterBtn').addEventListener('click', () => {
@@ -740,8 +740,18 @@ async function deleteRoster(id) {
 }
 
 // Initial load
-loadRosterings();
+loadManageList();
 loadCalendarRosterList();
+
+// loadRosterings — list all saved rosters for reference
+async function loadRosterings() {
+  try {
+    return await apiFetch('/api/rostering');
+  } catch (err) {
+    console.error('Failed to load rosters:', err);
+    return [];
+  }
+}
 </script>
 </body>
 </html>`;

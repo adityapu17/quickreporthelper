@@ -117,3 +117,18 @@ CREATE TABLE IF NOT EXISTS rosterings (
   created_at TEXT DEFAULT (datetime('now')),
   UNIQUE(bulan, tahun)
 );
+
+-- Daily shift assignments per agent per rostering
+CREATE TABLE IF NOT EXISTS roster_shifts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rostering_id INTEGER NOT NULL,
+  agent_index INTEGER NOT NULL,  -- 1-based index matching agent order
+  tanggal INTEGER NOT NULL,       -- day of month (1-31)
+  shift_code TEXT,                -- e.g. 'P', 'S', 'M', 'L', 'C', etc.
+  catatan TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(rostering_id) REFERENCES rosterings(id) ON DELETE CASCADE,
+  UNIQUE(rostering_id, agent_index, tanggal)
+);
+CREATE INDEX IF NOT EXISTS idx_shifts_rostering ON roster_shifts(rostering_id);

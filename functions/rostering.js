@@ -398,7 +398,12 @@ async function checkExistingRoster(bulan, tahun) {
 }
 
 async function openCalendar(bulan, tahun) {
-  const existing = await checkExistingRoster(bulan, tahun);
+  let existing = null;
+  try {
+    existing = await checkExistingRoster(bulan, tahun);
+  } catch (err) {
+    console.error('Failed to check existing roster:', err);
+  }
   if (existing) {
     currentRosterId = existing.id;
     currentRoster = existing;

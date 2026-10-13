@@ -589,21 +589,7 @@ function renderCalendar() {
   agentHeader.style.letterSpacing = '.04em';
   agentHeader.style.color = 'var(--slate-soft)';
   dateHeaderRow.appendChild(agentHeader);
-  dayNameHeaderRow.appendChild(document.createElement('th'));
-  dayNumberHeaderRow.appendChild(document.createElement('th'));
-  
-  // Add "Hari" label to day-name row first cell for clarity
-  const hariLabel = dayNameHeaderRow.querySelector('th');
-  if (hariLabel) {
-    hariLabel.textContent = 'Hari';
-    hariLabel.style.fontWeight = '700';
-    hariLabel.style.fontSize = '9px';
-    hariLabel.style.color = 'var(--slate-soft)';
-    hariLabel.style.textAlign = 'center';
-    hariLabel.style.padding = '2px 3px';
-    hariLabel.style.borderBottom = '1.5px solid var(--line)';
-    hariLabel.style.background = 'var(--card)';
-  }
+  // Rows 2 & 3: NO first cell — agentHeader rowSpan=3 already covers this column
 
   for (let d = 1; d <= hariDalamBulan; d++) {
     const date = new Date(currentRoster.tahun, currentRoster.bulan - 1, d);

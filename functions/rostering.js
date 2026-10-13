@@ -72,7 +72,7 @@ const ROSTERING_HTML = `<!DOCTYPE html>
 
   /* Calendar */
   .calendar-wrap{overflow-x:auto; overflow-y:auto; max-height:650px;}
-  .calendar-table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:max-content;}
+  .calendar-table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:max-content; table-layout:fixed;}
   .calendar-table th{position:sticky; top:0; background:#fbfcfd; z-index:10; text-align:center; font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); padding:6px 3px; border-bottom:1.5px solid var(--line); font-weight:700;}
   .calendar-table th.agent-col{position:sticky; left:0; width:190px; min-width:190px; background:#fbfcfd; z-index:20; text-align:left; padding:6px 10px;}
   .calendar-table td{text-align:center; padding:3px 2px; border-bottom:1px solid #eef1f4; border-right:1px solid #eef1f4; height:34px; vertical-align:middle;}

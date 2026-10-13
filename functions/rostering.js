@@ -585,8 +585,28 @@ function renderCalendar() {
 
   renderShiftLegend();
 
-  const thead = document.querySelector('#calendarTable thead');
-  thead.innerHTML = '';
+  // Clear entire table (including thead AND tbody) for clean re-render
+  const table = document.getElementById('calendarTable');
+  const thead = document.createElement('thead');
+  const tbody = document.createElement('tbody');
+  tbody.id = 'calendarBody';
+  table.innerHTML = '';
+  table.appendChild(thead);
+  table.appendChild(tbody);
+
+  // Explicit colgroup for reliable column alignment with table-layout:fixed
+  const colgroup = document.createElement('colgroup');
+  const agentCol = document.createElement('col');
+  agentCol.style.width = '190px';
+  agentCol.style.minWidth = '190px';
+  colgroup.appendChild(agentCol);
+  for (let d = 1; d <= hariDalamBulan; d++) {
+    const col = document.createElement('col');
+    col.style.width = '56px';
+    col.style.minWidth = '56px';
+    colgroup.appendChild(col);
+  }
+  table.appendChild(colgroup);
 
   const dateHeaderRow = document.createElement('tr');
   const dayNameHeaderRow = document.createElement('tr');

@@ -388,8 +388,24 @@ async function getShifts(rosteringId) {
 async function saveShifts(rosteringId, shifts) {
   return apiFetch('/api/rostering/' + rosteringId + '/shifts', {
     method: 'POST',
-    body: JSON.stringify({ shifts })
+    body: JSON.stringify({ shifts, agentNames: currentCalendarAgents })
   });
+}
+
+async function getShifts(rosteringId) {
+  const data = await apiFetch('/api/rostering/' + rosteringId + '/shifts');
+  if (Array.isArray(data)) return { shifts: data, agentNames: {} };
+  return data; // { shifts: [...], agentNames: {...} }
+}
+
+// Load agent names into currentCalendarAgents
+// eslint-disable-next-line no-unused-vars
+function loadAgentNames(agentNames) {
+  if (agentNames) {
+    Object.keys(agentNames).forEach(k => {
+      currentCalendarAgents[k] = agentNames[k];
+    });
+  }
 }
 
 async function checkExistingRoster(bulan, tahun) {
@@ -441,7 +457,14 @@ async function openCalendarFromRoster(roster) {
   currentRosterId = roster.id;
   showCalendarView();
   try {
-    const shifts = await getShifts(roster.id);
+    const result = await getShifts(roster.id);
+    const shifts = result.shifts;
+    // Load saved agent names
+    if (result.agentNames) {
+      Object.keys(result.agentNames).forEach(k => {
+        currentCalendarAgents[parseInt(k)] = result.agentNames[k];
+      });
+    }
     buildShiftMap(shifts);
     shifts.forEach(s => {
       if (!currentCalendarAgents[s.agent_index]) currentCalendarAgents[s.agent_index] = 'Agent ' + s.agent_index;
@@ -926,7 +949,8 @@ async function exportToExcel() {
   }
   try {
     const roster = await getRostering(currentRosterId);
-    const shifts = await getShifts(currentRosterId);
+    const shiftData = await getShifts(currentRosterId);
+    const shifts = shiftData.shifts;
 
     const hariDalamBulan = new Date(roster.tahun, roster.bulan, 0).getDate();
     const firstDay = new Date(roster.tahun, roster.bulan - 1, 1).getDay();
@@ -1049,6 +1073,11 @@ async function exportToExcel() {
       '-': 'f8d7da',    // light red
       '': 'ffffff'
     };
+    // XLSX expects 8-char ARGB (FF = opaque)
+    const toArgb = (hex) => {
+      hex = hex.replace('#', '');
+      return hex.length === 6 ? 'FF' + hex.toUpperCase() : hex.toUpperCase();
+    };
 
     const range = XLSX.utils.decode_range(ws['!ref'] || '');
     let rowIdx = 0;
@@ -1069,7 +1098,7 @@ async function exportToExcel() {
         const cellAddress = XLSX.utils.encode_cell({r: sectionHeaderRow, c: c});
         if (ws[cellAddress]) {
           ws[cellAddress].s = {
-            fill: {fgColor: {rgb: sectionHeaderColor.replace('#','')}},
+            fill: {fgColor: {rgb: toArgb(sectionHeaderColor)}},
             font: {bold: true},
             alignment: {horizontal: 'center'}
           };
@@ -1083,7 +1112,7 @@ async function exportToExcel() {
           const cellAddress = XLSX.utils.encode_cell({r, c});
           if (ws[cellAddress]) {
             ws[cellAddress].s = Object.assign(ws[cellAddress].s || {}, {
-              fill: {fgColor: {rgb: headerColor.replace('#','')}},
+              fill: {fgColor: {rgb: toArgb(headerColor)}},
               font: {bold: r === 0 ? true : false}
             });
           }
@@ -1100,7 +1129,7 @@ async function exportToExcel() {
           const cellAddress = XLSX.utils.encode_cell({r, c});
           const cell = ws[cellAddress];
           if (cell && cell.v) {
-            const col = excelColor[cell.v] || 'ffffff';
+            const col = toArgb(excelColor[cell.v] || 'ffffff');
             cell.s = Object.assign(cell.s || {}, {fill: {fgColor: {rgb: col}}, font: {bold: true}});
           }
         }
@@ -1210,7 +1239,14 @@ async function editManageRoster(id) {
     currentCalendarAgents[i] = 'Agent ' + i;
   }
   try {
-    const shifts = await getShifts(roster.id);
+    const result = await getShifts(roster.id);
+    const shifts = result.shifts;
+    // Load saved agent names
+    if (result.agentNames) {
+      Object.keys(result.agentNames).forEach(k => {
+        currentCalendarAgents[parseInt(k)] = result.agentNames[k];
+      });
+    }
     buildShiftMap(shifts);
     shifts.forEach(s => {
       if (!currentCalendarAgents[s.agent_index]) currentCalendarAgents[s.agent_index] = 'Agent ' + s.agent_index;

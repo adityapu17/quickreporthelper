@@ -693,11 +693,29 @@ function renderCalendar() {
   sectionGroups.forEach((group) => {
     const secDef = SECTION_DEFS.find(s => s.name === group.section) || {name: group.section, count: group.agents.length, color:'#f0f4f8'};
 
-    // Section header row
+    // Section header row — match thead structure: agent-col cell + span for day columns
     const sectionRow = document.createElement('tr');
     sectionRow.className = 'section-row';
+    
+    // First cell: corresponds to sticky agent column (blank but same width)
+    const agentColCell = document.createElement('td');
+    agentColCell.className = 'agent-col';
+    agentColCell.style.position = 'sticky';
+    agentColCell.style.left = '0';
+    agentColCell.style.zIndex = '15';
+    agentColCell.style.background = secDef.color;
+    agentColCell.style.padding = '8px 10px';
+    agentColCell.style.borderBottom = '1px solid #eef1f4';
+    agentColCell.style.borderRight = '1px solid #eef1f4';
+    agentColCell.style.fontWeight = '600';
+    agentColCell.style.fontSize = '11px';
+    agentColCell.style.width = '190px';
+    agentColCell.style.minWidth = '190px';
+    sectionRow.appendChild(agentColCell);
+    
+    // Second cell: spans all day columns
     const sectionCell = document.createElement('td');
-    sectionCell.colSpan = hariDalamBulan + 1;
+    sectionCell.colSpan = hariDalamBulan;
     sectionCell.textContent = group.section;
     sectionCell.style.background = secDef.color;
     sectionCell.style.fontWeight = '600';
@@ -705,6 +723,7 @@ function renderCalendar() {
     sectionCell.style.textAlign = 'center';
     sectionCell.style.padding = '8px';
     sectionCell.style.borderTop = '2px solid var(--line)';
+    sectionCell.style.borderBottom = '1px solid #eef1f4';
     sectionRow.appendChild(sectionCell);
     tbody.appendChild(sectionRow);
 

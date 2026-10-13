@@ -683,7 +683,6 @@ function renderCalendar() {
   thead.appendChild(dayNumberHeaderRow);
 
   // Build tbody with dynamic sections
-  const tbody = document.getElementById('calendarBody');
   tbody.innerHTML = '';
 
   // Build ordered list of (agentIndex, sectionName) pairs and group them

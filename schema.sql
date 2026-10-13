@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS rosterings (
   jumlah_karyawan INTEGER NOT NULL,
   hari_libur_nasional INTEGER DEFAULT 0,
   cuti_bersama INTEGER DEFAULT 0,
+  agent_names TEXT DEFAULT '{}',  -- JSON: {"1": "Name", "2": "Name"}
   created_at TEXT DEFAULT (datetime('now')),
   UNIQUE(bulan, tahun)
 );

@@ -8,17 +8,21 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const { results } = await env.DB.prepare(
+    const { results: shifts } = await env.DB.prepare(
       'SELECT id, rostering_id, agent_index, tanggal, shift_code, catatan, created_at, updated_at FROM roster_shifts WHERE rostering_id = ? ORDER BY agent_index, tanggal'
     ).bind(id).all();
 
-    return Response.json(results || []);
+    // Also fetch agent_names from rosterings
+    const roster = await env.DB.prepare('SELECT agent_names FROM rosterings WHERE id = ?').bind(id).first();
+    const agentNames = roster && roster.agent_names ? JSON.parse(roster.agent_names) : {};
+
+    return Response.json({ shifts: shifts || [], agentNames });
   } catch (error) {
     return Response.json({ error: 'Gagal memuat shift: ' + error.message }, { status: 500 });
   }
 }
 
-// POST /api/rostering/:id/shifts — bulk upsert shifts
+// POST /api/rostering/:id/shifts — bulk upsert shifts + agent names
 export async function onRequestPost(context) {
   const { request, env } = context;
   const { id } = context.params;
@@ -28,16 +32,25 @@ export async function onRequestPost(context) {
   }
 
   try {
-    const { shifts } = await request.json();
-
-    if (!Array.isArray(shifts) || shifts.length === 0) {
-      return Response.json({ error: 'Data shift kosong atau tidak valid' }, { status: 400 });
-    }
+    const { shifts, agentNames } = await request.json();
+    const shiftArray = Array.isArray(shifts) ? shifts : [];
 
     // Verify rostering exists
     const roster = await env.DB.prepare('SELECT id FROM rosterings WHERE id = ?').bind(id).first();
     if (!roster) {
       return Response.json({ error: 'Rostering tidak ditemukan' }, { status: 404 });
+    }
+
+    // Save agent names first (even if no shifts — user may have only renamed agents)
+    if (agentNames && typeof agentNames === 'object') {
+      await env.DB.prepare(
+        'UPDATE rosterings SET agent_names = ? WHERE id = ?'
+      ).bind(JSON.stringify(agentNames), id).run();
+    }
+
+    // If no shifts to save, return success after saving agent names
+    if (shiftArray.length === 0) {
+      return Response.json({ success: true, saved: 0, agentNamesSaved: true }, { status: 201 });
     }
 
     const stmt = env.DB.prepare(

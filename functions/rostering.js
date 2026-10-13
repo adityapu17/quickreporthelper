@@ -955,6 +955,13 @@ async function exportToExcel() {
     const hariDalamBulan = new Date(roster.tahun, roster.bulan, 0).getDate();
     const firstDay = new Date(roster.tahun, roster.bulan - 1, 1).getDay();
 
+    // Load agent names from DB into currentCalendarAgents for export
+    if (shiftData.agentNames) {
+      Object.keys(shiftData.agentNames).forEach(k => {
+        currentCalendarAgents[parseInt(k)] = shiftData.agentNames[k];
+      });
+    }
+
     // Build shift lookup
     const dbShiftMap = {};
     shifts.forEach(s => {

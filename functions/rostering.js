@@ -1049,6 +1049,7 @@ async function exportToExcel() {
       rowIdx = sectionHeaderRow + 1;
 
       // Style section header row — hijau muda background, bold font
+      const secDef = SECTION_DEFS.find(s => s.name === group.section) || {name: group.section, color: '#E8F5E9'};
       const sectionHeaderColor = secDef.color || '#E8F5E9'; // light green from SECTION_DEFS
       for (let c = 0; c <= range.e.c; c++) {
         const cellAddress = XLSX.utils.encode_cell({r: sectionHeaderRow, c: c});

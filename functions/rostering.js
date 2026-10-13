@@ -306,9 +306,9 @@ const PRESET_AGENT_NAMES = [
   'Muhammad Panji Dwi Nugroho'
 ];
 
-// NS = count of codes H*, I*, J*, K*, L, M  (matching gsheet COUNTIF pattern)
+// NS = count of codes E2, F1, H1, I2, J1, K1, L, M (per JIDWIL 2026)
 function isNSCode(code) {
-  return code === 'L' || code === 'M' || /^[HIJK]\d*$/.test(code);
+  return code === 'E2' || code === 'F1' || code === 'H1' || code === 'I2' || code === 'J1' || code === 'K1' || code === 'L' || code === 'M';
 }
 // LS = count of L + M only
 function isLSCode(code) {
@@ -496,7 +496,6 @@ function renderCalendarStats() {
     const el = document.createElement('div');
     el.id = 'calendarStats';
     el.style.cssText = 'margin-top:8px; font-size:10px;';
-    // Use calendarWrap which exists in the DOM
     const wrap = document.getElementById('calendarWrap');
     if (wrap) wrap.appendChild(el);
     return el;
@@ -504,18 +503,15 @@ function renderCalendarStats() {
   if (!currentRoster) { statsContainer.innerHTML = ''; return; }
 
   const ordered = Object.keys(currentCalendarAgents).map(Number).sort((a,b)=>a-b);
-  const statCols = ['NS','LS','OFF','CT','TOTAL HL','TOTAL HK'];
-  let html = '<div style="display:flex; gap:4px; flex-wrap:wrap;">';
-  ordered.slice(0,4).forEach(idx => {
+  let html = '<div style="display:flex; flex-direction:column; gap:4px;">';
+  ordered.forEach(idx => {
     const stats = computeAgentStats(idx);
     const name = currentCalendarAgents[idx] || ('Agent ' + idx);
-    html += '<div style="border:1px solid var(--line); border-radius:4px; padding:4px 8px; margin:2px; background:var(--card-bg,#fff);">';
+    html += '<div style="border:1px solid var(--line); border-radius:4px; padding:4px 8px; background:var(--card-bg,#fff);">';
     html += '<b>' + name + '</b>: ';
-    html += statCols.map(c => c+'='+stats[c.replace(' ','_')]).join(' | ');
+    html += 'NS=' + stats.NS + ' | LS=' + stats.LS + ' | OFF=' + stats.OFF + ' | CT=' + stats.CT + ' | TOTAL HL=' + stats.TOTAL_HL + ' | TOTAL HK=' + stats.TOTAL_HK;
     html += '</div>';
   });
-  if (ordered.length > 4) html += '<div style="border:1px solid var(--line); border-radius:4px; padding:4px 8px; margin:2px;">...' + (ordered.length - 4) + ' agent lain</div>';
-  html += '</div>';
   // Team summary
   let sNS=0,sLS=0,sOFF=0,sCT=0;
   ordered.forEach(idx => { const s=computeAgentStats(idx); sNS+=s.NS; sLS+=s.LS; sOFF+=s.OFF; sCT+=s.CT; });

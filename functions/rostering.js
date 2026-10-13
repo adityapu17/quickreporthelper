@@ -283,8 +283,26 @@ const SHIFT_CODES = {
 // The agent-to-section mapping is stored in a data structure, not hardcoded
 const SECTION_DEFS = [
   {name:'Supervisor', count:3, color:'#e8f5e9'},
-  {name:'Engineer on Site (EOS)', count:4, color:'#fff3e0'},
+  {name:'Engineer on Site (EOS)', count:5, color:'#fff3e0'},
   {name:'Helpdesk', count:99, color:'#e3f2fd'}
+];
+
+// Default agent names when creating a new roster (3 Sup, 5 EOS, 6 Helpdesk = 14 total)
+const DEFAULT_AGENT_NAMES = [
+  'Kelana Fransiscus Sianipar',  // 1 - Supervisor
+  'Deki Ahmad Fauzi',            // 2 - Supervisor
+  'Dien Darul Dienurillah',      // 3 - Supervisor
+  'Gusti Frans Gunawan',         // 4 - EOS
+  'Hasudungan Silaban',          // 5 - EOS
+  'Ade Bahtiar Soleh',           // 6 - EOS
+  'Rizki Muhammad',              // 7 - EOS
+  'Aji Fikrian Akbar',           // 8 - EOS
+  'Yohanes Harryanto',           // 9 - Helpdesk
+  'Agus Rudiansyah',             // 10 - Helpdesk
+  'Ahmad Ridwan',                // 11 - Helpdesk
+  'Pendi Suhendi',               // 12 - Helpdesk
+  'M. Ilham Saputra',            // 13 - Helpdesk
+  'Ahmad Ridwan'                 // 14 - Helpdesk
 ];
 
 // Preset agent names dropdown
@@ -426,19 +444,19 @@ async function openCalendar(bulan, tahun) {
     await openCalendarFromRoster(existing);
     return;
   }
-  // New roster: default 10 agents, sections assigned in order (3 Sup, 4 EOS, rest Helpdesk)
-  const jumlahDefault = 10;
+  // New roster: default 14 agents (3 Sup, 5 EOS, 6 Helpdesk)
+  const jumlahDefault = 14;
   currentRoster = { bulan: bulan, tahun: tahun, jumlah_karyawan: jumlahDefault, hari_libur_nasional: 0, cuti_bersama: 0, id: null };
   currentRosterId = null;
   currentCalendarAgents = {};
   shiftMap = {};
   agentSections = {};
-  // Assign default sections (3 Supervisor, 4 EOS, rest Helpdesk)
+  // Assign default sections (3 Supervisor, 5 EOS, 6 Helpdesk)
   for (let i = 1; i <= jumlahDefault; i++) {
     if (i <= 3) agentSections[i] = 'Supervisor';
-    else if (i <= 7) agentSections[i] = 'Engineer on Site (EOS)';
+    else if (i <= 8) agentSections[i] = 'Engineer on Site (EOS)';
     else agentSections[i] = 'Helpdesk';
-    currentCalendarAgents[i] = 'Agent ' + i;
+    currentCalendarAgents[i] = DEFAULT_AGENT_NAMES[i - 1] || ('Agent ' + i);
   }
   // Persist new roster to DB so it gets an ID
   try {
@@ -469,19 +487,18 @@ async function openCalendarFromRoster(roster) {
     shifts.forEach(s => {
       if (!currentCalendarAgents[s.agent_index]) currentCalendarAgents[s.agent_index] = 'Agent ' + s.agent_index;
     });
-    // Assign default sections for agents that don't have one
-    // 3 Supervisor (idx 1-3), 4 EOS (idx 4-7), rest Helpdesk
+    // 3 Supervisor (idx 1-3), 5 EOS (idx 4-8), 6 Helpdesk (idx 9-14)
     for (let i = 1; i <= roster.jumlah_karyawan; i++) {
       if (!agentSections[i]) {
         if (i <= 3) {
           agentSections[i] = 'Supervisor';
-        } else if (i <= 7) {
+        } else if (i <= 8) {
           agentSections[i] = 'Engineer on Site (EOS)';
         } else {
           agentSections[i] = 'Helpdesk';
         }
       }
-      if (!currentCalendarAgents[i]) currentCalendarAgents[i] = 'Agent ' + i;
+      if (!currentCalendarAgents[i]) currentCalendarAgents[i] = DEFAULT_AGENT_NAMES[i - 1] || ('Agent ' + i);
     }
     renderCalendar();
   } catch (err) {
@@ -1260,9 +1277,9 @@ async function editManageRoster(id) {
   // Assign sections + load shifts
   for (let i = 1; i <= roster.jumlah_karyawan; i++) {
     if (i <= 3) agentSections[i] = 'Supervisor';
-    else if (i <= 7) agentSections[i] = 'Engineer on Site (EOS)';
+    else if (i <= 8) agentSections[i] = 'Engineer on Site (EOS)';
     else agentSections[i] = 'Helpdesk';
-    currentCalendarAgents[i] = 'Agent ' + i;
+    currentCalendarAgents[i] = DEFAULT_AGENT_NAMES[i - 1] || ('Agent ' + i);
   }
   try {
     const result = await getShifts(roster.id);

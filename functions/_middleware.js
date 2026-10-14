@@ -23,6 +23,10 @@ export async function onRequest(context) {
   if (path === '/login.html' || path === '/login' || path === '/api/login' || path === '/api/logout' || path === '/api/users-count') {
     return next();
   }
+  // Allow static assets (images, stylesheets, scripts)
+  if (/\.(jpg|jpeg|png|gif|svg|ico|css|js|webp)$/i.test(path)) {
+    return next();
+  }
 
   // Bootstrap exception: allow creating the very first user account with no
   // session, but only while the users table is genuinely empty. Every

@@ -423,6 +423,55 @@
     return [...buckets.values()];
   }
 
+  // Product normalization: maps subCategory to product name.
+  // Matches the logic in index.html (normCategory function).
+  function normProduct(subCategory) {
+    const key = (subCategory || '').trim().toLowerCase();
+    if (key === 'e-meterai') return 'E-Meterai';
+    if (key === 'lain-lain' || key === 'lain_lain' || key === '') return 'Lain-lain';
+    return 'Digital Sign';
+  }
+
+  // One bucket per calendar day (1st .. refDate) counting interactions per
+  // product (E-Meterai, Digital Sign) across all channels.
+  // Excludes EOS Monitoring and "Lain-lain" category.
+  function computeDailyProductSeries(ticketRows, voiceRows, refDate, C) {
+    const cols = C || DEFAULT_COLS;
+    const T = cols.ticket;
+    const V = cols.voice;
+    const start = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+    const buckets = new Map();
+    for (let d = new Date(start); d <= refDate; d.setDate(d.getDate() + 1)) {
+      const day = new Date(d);
+      buckets.set(dateKey(day), {
+        date: day,
+        dayName: DAY_NAMES[day.getDay()],
+        dateLabel: `${day.getDate()} ${MONTHS_SHORT[day.getMonth()]}`,
+        eMeterai: 0,
+        digitalSign: 0,
+      });
+    }
+
+    // Process ticket rows
+    for (const r of ticketRows) {
+      if (r[T.source] === EXCLUDED_SOURCE) continue;
+      const origin = r[T.origin];
+      if (!isDate(origin)) continue;
+      const bucket = buckets.get(dateKey(new Date(origin.getFullYear(), origin.getMonth(), origin.getDate())));
+      if (!bucket) continue;
+      const product = normProduct(r[T.sub]);
+      if (product === 'E-Meterai') bucket.eMeterai += 1;
+      else if (product === 'Digital Sign') bucket.digitalSign += 1;
+    }
+
+    // Process voice rows - voice tickets don't have subCategory, so we need to check
+    // if they're associated with E-Meterai or Digital Sign via mainCategory or other fields
+    // For now, we'll skip voice rows for product breakdown since they lack subCategory
+    // (voice data typically doesn't have product categorization in the raw export)
+
+    return [...buckets.values()];
+  }
+
   // --------------------------------------------------------- formatReport.js
   const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
@@ -529,6 +578,8 @@
     computeResponseTimeMetrics,
     computeDailyResponseTimeSeries,
     computeDailySeries,
+    computeDailyProductSeries,
+    normProduct,
     formatReport,
     resolveCols,
   };

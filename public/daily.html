@@ -202,6 +202,13 @@
     <div class="chart-actions"><button class="copy-btn" id="btnDownloadRt">Download PNG</button></div>
     <canvas id="chartRtExport" style="position:fixed; top:0; left:-99999px;" aria-hidden="true"></canvas>
   </div>
+
+  <div class="card" id="productChartCard" style="display:none;">
+    <h2>Grafik Interaksi Harian E-Meterai & Digital Sign</h2>
+    <div class="chart-canvas-wrap"><canvas id="chartProduct"></canvas></div>
+    <div class="chart-actions"><button class="copy-btn" id="btnDownloadProduct">Download PNG</button></div>
+    <canvas id="chartProductExport" style="position:fixed; top:0; left:-99999px;" aria-hidden="true"></canvas>
+  </div>
 </div>
 
 <script>
@@ -252,7 +259,7 @@ function todayISO(){
 document.getElementById('refDateStr').value = todayISO();
 
 // ---- generate ----
-let dailySeries = null, rtSeries = null;
+let dailySeries = null, rtSeries = null, productSeries = null;
 
 document.getElementById('btnGenerate').addEventListener('click', async () => {
   const btn = document.getElementById('btnGenerate');
@@ -262,6 +269,7 @@ document.getElementById('btnGenerate').addEventListener('click', async () => {
   document.getElementById('outputCard').style.display = 'none';
   document.getElementById('dailyChartCard').style.display = 'none';
   document.getElementById('rtChartCard').style.display = 'none';
+  document.getElementById('productChartCard').style.display = 'none';
 
   const refDateStr = document.getElementById('refDateStr').value;
   if (!files.ticket || !files.voice || !files.detail || !refDateStr) {
@@ -315,6 +323,7 @@ document.getElementById('btnGenerate').addEventListener('click', async () => {
     const text = DailyLib.formatReport({ refDate, voice: voiceMetrics, email, wa, topKip: ticketMetrics.topKip, sdm });
     dailySeries = DailyLib.computeDailySeries(ticketData.rows, voiceData.rows, refDate, C);
     rtSeries = DailyLib.computeDailyResponseTimeSeries(detailData.rows, refDate, C);
+    productSeries = DailyLib.computeDailyProductSeries(ticketData.rows, voiceData.rows, refDate, C);
 
     document.getElementById('outputBlock').textContent = text;
     const dbg = ticketMetrics.debug;
@@ -330,10 +339,13 @@ document.getElementById('btnGenerate').addEventListener('click', async () => {
 
     renderDailyChart(dailySeries);
     renderRtChart(rtSeries);
+    renderProductChart(productSeries);
     document.getElementById('dailyChartCard').style.display = 'block';
     document.getElementById('rtChartCard').style.display = 'block';
+    document.getElementById('productChartCard').style.display = 'block';
     fadeInEl(document.getElementById('dailyChartCard'));
     fadeInEl(document.getElementById('rtChartCard'));
+    fadeInEl(document.getElementById('productChartCard'));
     status.textContent = '';
   } catch (err) {
     console.error(err);
@@ -362,7 +374,9 @@ document.getElementById('btnCopy').addEventListener('click', async () => {
 if (window.ChartDataLabels) Chart.register(window.ChartDataLabels);
 const DAILY_COLORS = { voice:'#8fa3ba', email:'#e67e22', whatsapp:'#1d5fbf' };
 const RT_COLORS = { email:'#e67e22', wa:'#38bdf8' };
-let chartDaily = null, chartRt = null;
+// Product chart colors: Digital Sign = regular blue, E-Meterai = yellowish-orange
+const PRODUCT_COLORS = { eMeterai:'#e0a94a', digitalSign:'#3568c9' };
+let chartDaily = null, chartRt = null, chartProduct = null;
 const EXPORT_PER_DAY = 46, EXPORT_MIN_WIDTH = 900, EXPORT_HEIGHT = 560;
 
 const whiteBg = { id:'whiteBg', beforeDraw(chart){ const { ctx, width, height } = chart; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle='#fff'; ctx.fillRect(0,0,width,height); ctx.restore(); } };
@@ -389,6 +403,17 @@ function rtConfig(series, forExport){
       { label:'WhatsApp', data: series.map(d=>toMin(d.wa)), borderColor:RT_COLORS.wa, backgroundColor:RT_COLORS.wa, pointRadius:forExport?3.5:2.5, borderWidth:forExport?2.5:2, tension:0.3, spanGaps:true, fill:false },
     ]},
     options: chartOpts(series.length, forExport, { stacked:false, title:'Pergerakan Response Time Harian Email vs WhatsApp', minuteTicks:true })
+  };
+}
+function productConfig(series, forExport){
+  const labels = series.map(d => [d.dayName, d.dateLabel]);
+  return {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'E-Meterai', data: series.map(d=>d.eMeterai), backgroundColor:PRODUCT_COLORS.eMeterai, stack:'s', borderRadius:4, borderSkipped:false, maxBarThickness: forExport?28:34 },
+      { label:'Digital Sign', data: series.map(d=>d.digitalSign), backgroundColor:PRODUCT_COLORS.digitalSign, stack:'s', borderRadius:4, borderSkipped:false, maxBarThickness: forExport?28:34 },
+    ]},
+    options: chartOpts(series.length, forExport, { stacked:true, title:'Grafik Interaksi Harian E-Meterai & Digital Sign', datalabels:true })
   };
 }
 function chartOpts(n, forExport, o){
@@ -425,6 +450,10 @@ function renderRtChart(series){
   if (chartRt) chartRt.destroy();
   chartRt = new Chart(document.getElementById('chartRt'), rtConfig(series, false));
 }
+function renderProductChart(series){
+  if (chartProduct) chartProduct.destroy();
+  chartProduct = new Chart(document.getElementById('chartProduct'), productConfig(series, false));
+}
 function downloadChart(series, cfgFn, canvasId, filename){
   const width = Math.max(EXPORT_MIN_WIDTH, series.length * EXPORT_PER_DAY);
   const canvas = document.getElementById(canvasId);
@@ -440,6 +469,7 @@ function downloadChart(series, cfgFn, canvasId, filename){
 }
 document.getElementById('btnDownloadDaily').addEventListener('click', () => { if (dailySeries) downloadChart(dailySeries, dailyConfig, 'chartDailyExport', 'akumulasi_daily_traffic_interaksi_all_channel.png'); });
 document.getElementById('btnDownloadRt').addEventListener('click', () => { if (rtSeries) downloadChart(rtSeries, rtConfig, 'chartRtExport', 'pergerakan_response_time_harian_email_vs_whatsapp.png'); });
+document.getElementById('btnDownloadProduct').addEventListener('click', () => { if (productSeries) downloadChart(productSeries, productConfig, 'chartProductExport', 'grafik_interaksi_harian_emeterai_digital_sign.png'); });
 </script>
 </body>
 </html>

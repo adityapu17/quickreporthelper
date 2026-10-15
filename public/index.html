@@ -770,9 +770,8 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
     return;
   }
   const days = series.days;
-  // Softer, lower-saturation palette (muted amber / muted indigo) instead of
-  // the previous high-chroma yellow/blue.
-  const emColor = '#e0a94a', dsColor = '#5b7fa6';
+  // Digital Sign = biru biasa, E-Meterai = kuning agak oranye.
+  const emColor = '#f0a52d', dsColor = '#3568c9';
   const maxVal = Math.max(...days.map(d => d.em + d.ds), 1);
   const n = days.length;
   const barW = Math.max(14, Math.min(28, Math.floor(760 / n) - 4));
@@ -780,7 +779,7 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
   const gap = 4;
   const chartW = n * (barW + gap) + gap;
   const chartH = 232;
-  const padTop = 26, padBottom = 56;
+  const padTop = 38, padBottom = 56;
   const innerH = chartH - padTop - padBottom;
 
   let bars = '', labels = '';
@@ -800,9 +799,21 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
     const emRxTop = d.ds > 0 ? 0 : rx;
     bars += `<rect data-date-key="${dateKey}" data-product="E-Meterai" x="${x}" y="${emY.toFixed(1)}" width="${barW}" height="${Math.max(emH, d.em>0?1:0)}" rx="${emRxTop}" ry="${emRxTop}" fill="${emColor}" ${emClickable ? 'style="cursor:pointer;"' : ''}></rect>`;
     bars += `<rect data-date-key="${dateKey}" data-product="Digital Sign" x="${x}" y="${dsY.toFixed(1)}" width="${barW}" height="${Math.max(dsH, d.ds>0?1:0)}" rx="${rx}" ry="${rx}" fill="${dsColor}" ${dsClickable ? 'style="cursor:pointer;"' : ''}></rect>`;
-    if (emH + dsH > 0){
-      bars += `<text x="${x + barW/2}" y="${(dsY - 5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#425066" font-weight="600">${d.em+d.ds}</text>`;
+    // Angka dipisah per produk: di dalam segmen kalau cukup tinggi,
+    // kalau terlalu tipis ditaruh di atas bar dengan warna produknya.
+    const MIN_INSIDE_H = 12;
+    const overflow = [];
+    if (d.em > 0){
+      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${d.em}</text>`;
+      else overflow.push({ v: d.em, c: emColor });
     }
+    if (d.ds > 0){
+      if (dsH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(dsY + dsH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${d.ds}</text>`;
+      else overflow.push({ v: d.ds, c: dsColor });
+    }
+    overflow.forEach((o, k) => {
+      bars += `<text x="${x + barW/2}" y="${(dsY - 4 - k*12).toFixed(1)}" text-anchor="middle" font-size="10" fill="${o.c}" font-weight="700" pointer-events="none">${o.v}</text>`;
+    });
     labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 16}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${DAY_ABBR[d.date.getDay()]}</text>`;
     labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 30}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${d.date.getDate()}</text>`;
   });

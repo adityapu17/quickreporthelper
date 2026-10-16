@@ -8,10 +8,10 @@
 
 // Security headers applied to every response.
 const SECURITY_HEADERS = {
-  // Tight CSP: same-origin only. 'unsafe-inline' on style-src keeps inline
-  // <style> blocks working (used by login.html etc.). script-src is 'self'
-  // only — inline scripts are blocked until migrated to external files.
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+  // Tight CSP: same-origin only. 'unsafe-inline' on style-src AND script-src
+  // keeps inline <style>/<script> blocks working (login.html etc. use inline
+  // scripts). TODO: migrate inline scripts to external .js files to drop this.
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',

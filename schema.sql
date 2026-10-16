@@ -133,3 +133,11 @@ CREATE TABLE IF NOT EXISTS roster_shifts (
   UNIQUE(rostering_id, agent_index, tanggal)
 );
 CREATE INDEX IF NOT EXISTS idx_shifts_rostering ON roster_shifts(rostering_id);
+
+-- Login rate-limiting: tracks failed attempts per IP to enforce a
+-- 5-strike lockout window (15 min) before the account can be retried.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  ip TEXT PRIMARY KEY,
+  failed_count INTEGER DEFAULT 0,
+  locked_until TEXT
+);

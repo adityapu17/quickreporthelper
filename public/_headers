@@ -1,0 +1,26 @@
+# Security headers applied to every response served by Cloudflare Pages.
+# Source: https://developers.cloudflare.com/pages/platform/header-configuration/
+
+/*
+  # --- Content Security Policy ---
+  # Tight CSP: only same-origin scripts/styles/frames.
+  # 'unsafe-inline' on style-src is required because the login page and
+  # rostering page embed inline <style> blocks. script-src is locked to
+  # 'self' (no inline) — inline scripts will be blocked until migrated
+  # to external files.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+
+  # --- HTTPS enforcement ---
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+  # --- Clickjacking protection ---
+  X-Frame-Options: DENY
+
+  # --- Permission policy (geolocation, mic, camera all disabled) ---
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+  # --- CORS: restrict to same origin ---
+  Access-Control-Allow-Origin: https://quickreporthelper.pages.dev
+
+  # --- Referrer policy ---
+  Referrer-Policy: strict-origin-when-cross-origin

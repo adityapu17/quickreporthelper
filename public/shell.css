@@ -102,3 +102,37 @@ body.capture-mode.has-sidebar{ padding-left:0; }
   .sb-link-label, .sidebar.collapsed .sb-link-label{ display:inline; }
   .sidebar.collapsed .sb-link:hover::after{ display:none; }
 }
+
+/* --- User menu in header (initial + dropdown) --- */
+.user-menu{ position:relative; display:flex; align-items:center; }
+.user-initial-btn{
+  width:32px; height:32px; border-radius:6px;
+  border:1px solid var(--line,#d9e0e8);
+  background:var(--teal-soft,#e4f2ef); color:var(--teal,#0f7a6b);
+  font-weight:700; font-size:14px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--sans,"Segoe UI",Arial,sans-serif);
+  transition:background-color .15s ease, color .15s ease;
+}
+.user-initial-btn:hover{ background:var(--teal,#0f7a6b); color:#fff; }
+.user-dropdown{
+  position:absolute; top:100%; right:0; margin-top:4px;
+  background:var(--card,#fff); border:1px solid var(--line,#d9e0e8);
+  border-radius:8px; padding:8px; min-width:160px;
+  display:none; flex-direction:column; gap:4px;
+  box-shadow:0 4px 12px rgba(20,30,45,.14); z-index:30;
+}
+.user-dropdown.show{ display:flex; }
+.user-email{
+  font-size:12.5px; color:var(--ink,#1b2430);
+  padding:6px 12px; word-break:break-all;
+  font-family:var(--sans,"Segoe UI",Arial,sans-serif);
+}
+.user-dropdown .dropdown-item{
+  font-family:var(--sans,"Segoe UI",Arial,sans-serif);
+  font-size:12.5px; font-weight:600; color:var(--slate,#425066);
+  border:none; background:none; padding:8px 12px; cursor:pointer;
+  border-radius:6px; text-align:left;
+  transition:background-color .15s ease, color .15s ease;
+}
+.user-dropdown .dropdown-item:hover{ background:var(--paper,#f6f8fa); color:var(--ink,#1b2430); }

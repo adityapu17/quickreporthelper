@@ -67,4 +67,88 @@
     l.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap';
     document.head.appendChild(l);
   }
+
+  // --- User menu: replace full email in header with initial + dropdown ---
+  (function initUserMenu() {
+    function setup() {
+      var headerAccount = document.querySelector('.header-account');
+      if (!headerAccount) return; // login page, etc.
+      if (headerAccount.querySelector('.user-menu')) return; // already initialized
+
+      var whoamiSpan = document.getElementById('whoami');
+      var logoutBtn = document.getElementById('btn-logout');
+      if (!whoamiSpan || !logoutBtn) return;
+
+      // Hide the old full-email span
+      whoamiSpan.style.display = 'none';
+
+      // Build the user menu
+      var userMenu = document.createElement('div');
+      userMenu.className = 'user-menu';
+
+      var initialBtn = document.createElement('button');
+      initialBtn.className = 'user-initial-btn';
+      initialBtn.type = 'button';
+      initialBtn.setAttribute('aria-label', 'Menu pengguna');
+      initialBtn.setAttribute('aria-haspopup', 'true');
+      initialBtn.setAttribute('aria-expanded', 'false');
+      initialBtn.textContent = '·';
+
+      var dropdown = document.createElement('div');
+      dropdown.className = 'user-dropdown';
+
+      var emailDiv = document.createElement('div');
+      emailDiv.className = 'user-email';
+      emailDiv.textContent = '…';
+
+      // Move the existing logout button into the dropdown
+      logoutBtn.className = 'dropdown-item';
+      logoutBtn.setAttribute('aria-label', 'Logout');
+
+      dropdown.appendChild(emailDiv);
+      dropdown.appendChild(logoutBtn);
+      userMenu.appendChild(initialBtn);
+      userMenu.appendChild(dropdown);
+
+      // Insert before bot-helper (or at end of header-account)
+      var botHelper = headerAccount.querySelector('.bot-helper');
+      if (botHelper) {
+        headerAccount.insertBefore(userMenu, botHelper);
+      } else {
+        headerAccount.appendChild(userMenu);
+      }
+
+      // Fetch current user to populate initial + email
+      fetch('/api/me', { credentials: 'same-origin' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (d && d.email) {
+            initialBtn.textContent = d.email.charAt(0).toUpperCase();
+            emailDiv.textContent = d.email;
+          }
+        })
+        .catch(function() {});
+
+      // Toggle dropdown
+      initialBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var shown = dropdown.classList.toggle('show');
+        initialBtn.setAttribute('aria-expanded', shown);
+      });
+
+      // Close dropdown on outside click
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.user-menu') && dropdown.classList.contains('show')) {
+          dropdown.classList.remove('show');
+          initialBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setup);
+    } else {
+      setup();
+    }
+  })();
 })();

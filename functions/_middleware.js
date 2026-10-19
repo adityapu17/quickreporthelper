@@ -8,10 +8,12 @@
 
 // Security headers applied to every response.
 const SECURITY_HEADERS = {
-  // Tight CSP: same-origin only. 'unsafe-inline' on style-src AND script-src
-  // keeps inline <style>/<script> blocks working (login.html etc. use inline
-  // scripts). TODO: migrate inline scripts to external .js files to drop this.
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+  // CSP: same-origin + trusted CDNs for Chart.js, xlsx (loaded via
+  // <script src> from cdnjs.cloudflare.com / cdn.jsdelivr.net).
+  // 'unsafe-inline' on style-src AND script-src keeps inline <style>/<script>
+  // blocks working (login.html etc. use inline scripts).
+  // TODO: migrate inline scripts to external .js files to restore strict CSP
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; frame-ancestors 'none'",
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',

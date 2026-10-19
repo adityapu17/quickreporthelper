@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticketing — Intan</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/shell.css">
+<style>
+  :root{
+    --ink:#1b2430; --slate:#425066; --slate-soft:#6b7a8f; --line:#d9e0e8;
+    --paper:#f6f8fa; --card:#ffffff; --teal:#0f7a6b; --teal-soft:#e4f2ef;
+    --red:#b3432f; --red-soft:#fbe9e5; --amber:#c98a1d; --amber-soft:#fbf1dc; --blue:#3568c9; --green:#2e8b57; --green-soft:#e3f3ea;
+    --sans:"Segoe UI","Poppins",Arial,sans-serif; --heading:"Poppins","Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); animation:pageFade .2s ease; }
+  @keyframes pageFade{ from{opacity:0;} to{opacity:1;} }
+  @keyframes cardIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  header{ padding:20px 32px 16px; background:var(--card); border-bottom:1px solid var(--line); display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+  header h1{ margin:0; font-size:19px; font-family:var(--heading); }
+  header p{ margin:4px 0 0; font-size:12.5px; color:var(--slate-soft); }
+  .header-account{ display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--slate-soft); white-space:nowrap; }
+  .header-account button{ background:none; border:1px solid var(--line); border-radius:6px; padding:5px 11px; font-size:12px; cursor:pointer; color:var(--ink); font-family:inherit; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:24px 24px 60px; }
+
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:20px; animation:cardIn .25s ease both; }
+  .card > h2{ margin:0; padding:14px 20px; font-size:13.5px; font-family:var(--heading); border-bottom:1px solid var(--line); }
+  .card-body{ padding:16px 20px; }
+
+  /* period picker */
+  .picker-label{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:10px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ border:1px solid var(--line); background:var(--card); color:var(--slate); border-radius:999px; padding:7px 14px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit; user-select:none; }
+  .chip:hover{ background:var(--paper); }
+  .chip.on{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .chip.all{ border-style:dashed; }
+  .chip.all.on{ border-style:solid; }
+  .hint{ font-size:12px; color:var(--slate-soft); margin-top:10px; }
+
+  /* total cards */
+  .totals{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:20px; }
+  .tcard{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; animation:cardIn .25s ease both; }
+  .tcard .t-label{ font-size:11.5px; font-weight:700; color:var(--slate-soft); letter-spacing:.03em; }
+  .tcard .t-val{ font-size:30px; font-weight:700; font-family:var(--heading); margin-top:6px; font-variant-numeric:tabular-nums; }
+  .tcard.main{ background:var(--teal-soft); border-color:#bfe0da; }
+  .tcard.main .t-val{ color:var(--teal); }
+  .tcard .t-note{ font-size:11px; color:var(--slate-soft); margin-top:2px; }
+
+  /* detail */
+  .detail-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 20px; border-bottom:1px solid var(--line); }
+  .detail-head h2{ margin:0; font-size:13.5px; font-family:var(--heading); }
+  select{ font-family:inherit; font-size:13px; padding:7px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .mini{ border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:#fff; }
+  .mini .m-label{ font-size:11px; font-weight:700; color:var(--slate-soft); text-transform:uppercase; letter-spacing:.04em; }
+  .mini .m-val{ font-size:22px; font-weight:700; font-family:var(--heading); margin-top:4px; font-variant-numeric:tabular-nums; }
+  .sec-title{ font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--slate-soft); margin:22px 0 10px; }
+  .sec-title:first-child{ margin-top:0; }
+  .sev-critical .m-val{ color:#a3262a; } .sev-high .m-val{ color:#c0561f; } .sev-medium .m-val{ color:var(--amber); } .sev-low .m-val{ color:var(--green); }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); }
+  th{ font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); background:#fbfcfd; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  tr.total-row td{ font-weight:700; background:#fbfcfd; }
+  .tbl-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  .tbl-wrap table th:first-child, .tbl-wrap table td:first-child{ padding-left:14px; }
+  .badge{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
+  .b-ok{ background:var(--green-soft); color:var(--green); }
+  .b-bad{ background:var(--red-soft); color:var(--red); }
+  .b-na{ background:var(--paper); color:var(--slate-soft); }
+  .pct-big{ font-size:26px; font-weight:700; font-family:var(--heading); }
+
+  .split{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .bar{ height:12px; border-radius:6px; background:var(--red-soft); overflow:hidden; display:flex; }
+  .bar > span{ display:block; height:100%; background:var(--green); }
+  .bar-legend{ display:flex; justify-content:space-between; font-size:12px; margin-top:6px; color:var(--slate); }
+  .bar-legend b{ font-variant-numeric:tabular-nums; }
+  .empty{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13.5px; }
+  .warn{ background:var(--amber-soft); border:1px solid #ecd49a; color:#7a5510; border-radius:10px; padding:10px 14px; font-size:12.5px; margin-bottom:16px; line-height:1.5; }
+  .spinner{ display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--teal); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:8px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  @media (max-width:980px){ .totals{ grid-template-columns:repeat(2,1fr);} .grid4{ grid-template-columns:repeat(2,1fr);} .split{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body data-section="ticketing">
+<script src="/shell.js"></script>
+<header>
+  <div>
+    <h1>Ticketing</h1>
+    <p>Tiket escalated per sub category — severity, status, dan pencapaian SLA.</p>
+  </div>
+  <div class="header-account">
+    <span id="whoami"></span>
+    <button id="btn-logout">Logout</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-body">
+      <div class="picker-label">Periode</div>
+      <div class="chips" id="chips"><span class="hint">Memuat periode...</span></div>
+      <div class="hint">Klik satu atau beberapa bulan, atau pilih "Seluruh data". Data tampil otomatis.</div>
+    </div>
+  </div>
+
+  <div id="out"><div class="card"><div class="empty">Pilih periode dulu untuk menampilkan data.</div></div></div>
+</div>
+
+<script>
+const SUB_ORDER = [
+  { key:'emeterai', label:'E-Meterai' },
+  { key:'perisai',  label:'Perisai' },
+  { key:'shield',   label:'Peruri Shield' },
+  { key:'event',    label:'Event Management' }
+];
+const SEVS = ['Critical','High','Medium','Low'];
+const COL_LABELS = {
+  ticket_severity:'Severity', ticket_status:'Status', ticket_date_pending:'Date Pending',
+  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_id:'ID Ticket'
+};
+
+let periods = [];          // dari /api/periods
+let selected = new Set();  // "year-month"
+let selectAll = false;
+let data = null;           // response /api/ticketing
+let activeSub = 'emeterai';
+let reqSeq = 0, debounceT = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf = (n) => Number(n || 0).toLocaleString('id-ID');
+const pctTxt = (p) => p === null || p === undefined ? '—' : String(p).replace('.', ',') + '%';
+function dur(h){
+  if (h === null || h === undefined) return '—';
+  if (h < 1) return Math.round(h * 60) + ' mnt';
+  if (h < 48) return String(Math.round(h * 10) / 10).replace('.', ',') + ' jam';
+  return String(Math.round(h / 24 * 10) / 10).replace('.', ',') + ' hari';
+}
+
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email) $('whoami').textContent = d.email; }).catch(() => {});
+
+async function loadPeriods(){
+  try {
+    const res = await fetch('/api/periods');
+    if (!res.ok) throw new Error('status ' + res.status);
+    periods = await res.json();
+    renderChips();
+  } catch (e) {
+    $('chips').innerHTML = '<span class="hint">Gagal memuat periode: ' + esc(e.message) + '</span>';
+  }
+}
+
+function renderChips(){
+  if (!periods.length){ $('chips').innerHTML = '<span class="hint">Belum ada data tersimpan di database.</span>'; return; }
+  const all = '<button type="button" class="chip all' + (selectAll ? ' on' : '') + '" data-all="1">Seluruh data</button>';
+  $('chips').innerHTML = all + periods.map(p => {
+    const k = p.year + '-' + p.month;
+    return '<button type="button" class="chip' + (!selectAll && selected.has(k) ? ' on' : '') + '" data-k="' + k + '">' + esc(p.label || (p.month + 1) + '/' + p.year) + '</button>';
+  }).join('');
+}
+
+$('chips').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  if (b.dataset.all){ selectAll = !selectAll; if (selectAll) selected.clear(); }
+  else {
+    selectAll = false;
+    const k = b.dataset.k;
+    if (selected.has(k)) selected.delete(k); else selected.add(k);
+  }
+  renderChips();
+  clearTimeout(debounceT);
+  debounceT = setTimeout(load, 200);
+});
+
+async function load(){
+  const out = $('out');
+  if (!selectAll && !selected.size){
+    data = null;
+    out.innerHTML = '<div class="card"><div class="empty">Pilih periode dulu untuk menampilkan data.</div></div>';
+    return;
+  }
+  const seq = ++reqSeq;
+  out.innerHTML = '<div class="card"><div class="empty"><span class="spinner"></span>Memuat data...</div></div>';
+  try {
+    const q = selectAll ? 'all' : Array.from(selected).join(',');
+    const res = await fetch('/api/ticketing?periods=' + encodeURIComponent(q));
+    const j = await res.json();
+    if (seq !== reqSeq) return; // ada permintaan yang lebih baru
+    if (!res.ok) throw new Error(j.error || ('status ' + res.status));
+    data = j;
+    render();
+  } catch (e) {
+    if (seq !== reqSeq) return;
+    out.innerHTML = '<div class="card"><div class="empty">Gagal memuat: ' + esc(e.message) + '</div></div>';
+  }
+}
+
+function missingColsWarning(){
+  const miss = Object.keys(COL_LABELS).filter(k => !data.columns[k]);
+  if (!miss.length) return '';
+  return '<div class="warn"><b>Kolom belum terdeteksi:</b> ' + miss.map(k => esc(COL_LABELS[k])).join(', ') +
+    '. Hitungan yang bergantung pada kolom itu akan kosong/tidak akurat. Isi nama header yang benar di ' +
+    '<a href="/config">Konfigurasi Kolom</a> (grup "Ticketing"), lalu muat ulang periode.</div>';
+}
+
+function render(){
+  const t = data.totals;
+  const cards = [
+    { l:'Total Tiket Escalated', v:t.all, n:'semua sub category', main:true },
+    { l:'Total Tiket e-Meterai', v:t.emeterai },
+    { l:'Total Tiket Perisai', v:t.perisai },
+    { l:'Total Tiket Peruri Shield', v:t.shield },
+    { l:'Total Tiket Event Management', v:t.event }
+  ];
+  const totalsHtml = '<div class="totals">' + cards.map(c =>
+    '<div class="tcard' + (c.main ? ' main' : '') + '"><div class="t-label">' + c.l + '</div><div class="t-val">' + nf(c.v) + '</div>' +
+    (c.n ? '<div class="t-note">' + c.n + '</div>' : '') + '</div>').join('') + '</div>';
+
+  const picker = '<select id="sub-select" aria-label="Detail sub category">' +
+    SUB_ORDER.map(s => '<option value="' + s.key + '"' + (s.key === activeSub ? ' selected' : '') + '>' + s.label + '</option>').join('') + '</select>';
+
+  $('out').innerHTML = missingColsWarning() + totalsHtml +
+    '<div class="card"><div class="detail-head"><h2>Detail per Sub Category</h2>' + picker + '</div>' +
+    '<div class="card-body" id="detail"></div></div>';
+  $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; renderDetail(); });
+  renderDetail();
+}
+
+function slaBar(on, bad){
+  const tot = on + bad;
+  if (!tot) return '<div class="hint">Belum ada tiket yang bisa dihitung.</div>';
+  const w = Math.round(on / tot * 1000) / 10;
+  return '<div class="bar"><span style="width:' + w + '%"></span></div>' +
+    '<div class="bar-legend"><span>On target <b>' + nf(on) + '</b></span><span>Breach <b>' + nf(bad) + '</b></span></div>';
+}
+
+function renderDetail(){
+  const s = data.subs[activeSub];
+  const sevCls = { Critical:'sev-critical', High:'sev-high', Medium:'sev-medium', Low:'sev-low' };
+
+  let h = '';
+  // 8. total + severity
+  h += '<div class="sec-title">Total & Severity</div><div class="grid4" style="grid-template-columns:repeat(5,1fr)">' +
+    '<div class="mini"><div class="m-label">Total Tiket</div><div class="m-val">' + nf(s.total) + '</div></div>' +
+    SEVS.map(v => '<div class="mini ' + sevCls[v] + '"><div class="m-label">' + v + '</div><div class="m-val">' + nf(s.severity[v]) + '</div></div>').join('') +
+    '</div>';
+  if (s.severity.Lainnya) h += '<div class="hint">' + nf(s.severity.Lainnya) + ' tiket tanpa severity yang dikenali (tidak ikut hitungan SLA).</div>';
+
+  // 9. outstanding vs resolved/closed
+  h += '<div class="sec-title">Status Tiket</div><div class="grid4">' +
+    '<div class="mini"><div class="m-label">Outstanding</div><div class="m-val" style="color:var(--amber)">' + nf(s.outstanding) + '</div></div>' +
+    '<div class="mini"><div class="m-label">Resolved</div><div class="m-val">' + nf(s.resolved) + '</div></div>' +
+    '<div class="mini"><div class="m-label">Closed</div><div class="m-val">' + nf(s.closed) + '</div></div>' +
+    '<div class="mini"><div class="m-label">Resolved + Closed</div><div class="m-val" style="color:var(--green)">' + nf(s.done) + '</div></div>' +
+    '</div>';
+
+  // 10-12. SLA resolved+closed
+  const st = s.sla.total;
+  h += '<div class="sec-title">SLA Tiket Resolved & Closed</div><div class="split"><div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Severity</th><th class="num">Target</th><th class="num">Dihitung</th><th class="num">On Target</th><th class="num">Breach</th><th class="num">% Capai SLA</th></tr></thead><tbody>' +
+    SEVS.map(v => { const x = s.sla.bySeverity[v];
+      return '<tr><td>' + v + '</td><td class="num">' + x.target + ' jam</td><td class="num">' + nf(x.counted) + '</td><td class="num">' + nf(x.onTarget) + '</td><td class="num">' + nf(x.breach) + '</td><td class="num"><b>' + pctTxt(x.pct) + '</b></td></tr>'; }).join('') +
+    '<tr class="total-row"><td>Total (semua severity)</td><td class="num">—</td><td class="num">' + nf(st.counted) + '</td><td class="num">' + nf(st.onTarget) + '</td><td class="num">' + nf(st.breach) + '</td><td class="num">' + pctTxt(st.pct) + '</td></tr>' +
+    '</tbody></table></div></div>' +
+    '<div><div class="mini"><div class="m-label">Total SLA ' + esc(s.label) + ' (all severity)</div><div class="pct-big" style="margin:6px 0 12px">' + pctTxt(st.pct) + '</div>' +
+    slaBar(st.onTarget, st.breach) + '</div></div></div>';
+  if (s.sla.skipped) h += '<div class="hint">' + nf(s.sla.skipped) + ' tiket resolved/closed tidak dihitung SLA (tanggal tidak lengkap atau severity tidak dikenali).</div>';
+  h += '<div class="hint">Durasi = date open → date resolved; kalau date pending terisi, date open → date pending.</div>';
+
+  // 13. outstanding SLA
+  const ot = s.outstandingSla.total;
+  h += '<div class="sec-title">SLA Tiket Outstanding</div><div class="split"><div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Severity</th><th class="num">Target</th><th class="num">Outstanding</th><th class="num">On Track</th><th class="num">Breach</th></tr></thead><tbody>' +
+    SEVS.map(v => { const x = s.outstandingSla.bySeverity[v];
+      return '<tr><td>' + v + '</td><td class="num">' + x.target + ' jam</td><td class="num">' + nf(x.count) + '</td><td class="num">' + nf(x.onTrack) + '</td><td class="num">' + nf(x.breach) + '</td></tr>'; }).join('') +
+    '<tr class="total-row"><td>Total</td><td class="num">—</td><td class="num">' + nf(ot.count) + '</td><td class="num">' + nf(ot.onTrack) + '</td><td class="num">' + nf(ot.breach) + '</td></tr>' +
+    '</tbody></table></div></div>' +
+    '<div><div class="mini"><div class="m-label">On Track vs Breach</div><div style="margin-top:12px">' + slaBar(ot.onTrack, ot.breach) + '</div></div></div></div>';
+  const unc = s.outstanding - ot.count;
+  if (unc > 0) h += '<div class="hint">' + nf(unc) + ' tiket outstanding tidak masuk hitungan (tanggal open kosong atau severity tidak dikenali).</div>';
+
+  // 14. top 10
+  h += '<div class="sec-title">Top 10 Tiket ' + esc(s.label) + ' <span style="text-transform:none;letter-spacing:0;font-weight:400">(durasi terlama)</span></div>';
+  if (!s.top10.length) h += '<div class="hint">Tidak ada tiket dengan durasi yang bisa dihitung.</div>';
+  else h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th class="num">Durasi</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
+    s.top10.map((r, i) => {
+      const stl = r.state === 'outstanding' ? 'Outstanding' : (r.state === 'closed' ? 'Closed' : 'Resolved');
+      const b = r.withinTarget === null ? '<span class="badge b-na">—</span>'
+        : (r.withinTarget ? '<span class="badge b-ok">' + (r.state === 'outstanding' ? 'On Track' : 'On Target') + '</span>' : '<span class="badge b-bad">Breach</span>');
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + stl + '</td><td class="num">' + dur(r.hours) + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+
+  $('detail').innerHTML = h;
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+loadPeriods();
+</script>
+</body>
+</html>

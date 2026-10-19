@@ -1,4 +1,4 @@
-/* Injects the left sidebar (Monthly / Summary / Daily / QC Sampler) into any
+/* Injects the left sidebar (Monthly / Summary / Daily / QC Sampler / Rostering / Ticketing) into any
    page. Set <body data-section="monthly|summary|daily|qc"> to mark the
    active item. Kept dependency-free so it works on every page, including
    the simpler ones that share no other JS. */
@@ -10,6 +10,7 @@
     summary: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
     daily:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
     qc:      '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.2 16.2 21 21"/><path d="M8.5 11h5M11 8.5v5"/></svg>',
+    ticketing: '<svg viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M14 6v12" stroke-dasharray="2 2.5"/></svg>',
     rostering: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 6v12M11 6v12M15 6v12"/></svg>'
   };
   var items = [
@@ -17,7 +18,8 @@
     { key: 'summary', href: '/summary',    label: 'Summary Interaction' },
     { key: 'daily',   href: '/daily',      label: 'Daily Report Interaction' },
     { key: 'qc',      href: '/qc-sampler', label: 'QC Sampler' },
-    { key: 'rostering', href: '/rostering', label: 'Rostering' }
+    { key: 'rostering', href: '/rostering', label: 'Rostering' },
+    { key: 'ticketing', href: '/ticketing', label: 'Ticketing' }
   ];
   var active = document.body.getAttribute('data-section') || 'monthly';
   var collapsed = false;

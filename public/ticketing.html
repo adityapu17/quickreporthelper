@@ -98,6 +98,33 @@
   .spinner{ display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--teal); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:8px; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
+  .tabs{ display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--line); }
+  .tab{ background:none; border:0; border-bottom:2px solid transparent; padding:10px 18px; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--slate-soft); cursor:pointer; margin-bottom:-1px; }
+  .tab:hover{ color:var(--ink); }
+  .tab.on{ color:var(--teal); border-bottom-color:var(--teal); }
+  .search-box{ display:flex; gap:10px; align-items:center; }
+  .search-box input{ flex:1; font-family:inherit; font-size:14px; padding:10px 14px; border:1px solid var(--line); border-radius:8px; }
+  .search-box input:focus{ outline:2px solid var(--teal-soft); border-color:var(--teal); }
+  .s-layout{ display:grid; grid-template-columns:minmax(300px,2fr) 3fr; gap:16px; align-items:start; }
+  .s-list{ max-height:720px; overflow-y:auto; }
+  .s-item{ display:block; width:100%; text-align:left; background:#fff; border:0; border-bottom:1px solid var(--line); padding:11px 16px; cursor:pointer; font-family:inherit; color:inherit; }
+  .s-item:hover{ background:var(--paper); }
+  .s-item.on{ background:var(--teal-soft); box-shadow:inset 3px 0 0 var(--teal); }
+  .s-item .s-id{ font-weight:700; font-size:13px; }
+  .s-item .s-sub{ font-size:12.5px; color:var(--slate); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .s-item .s-meta{ font-size:11.5px; color:var(--slate-soft); margin-top:4px; display:flex; flex-wrap:wrap; gap:4px 10px; }
+  .kv{ display:grid; grid-template-columns:150px 1fr; gap:8px 14px; font-size:13px; }
+  .kv .k{ color:var(--slate-soft); font-weight:600; font-size:12px; }
+  .kv .v{ word-break:break-word; }
+  .tl{ list-style:none; margin:0; padding:0; border-left:2px solid var(--line); margin-left:6px; }
+  .tl li{ position:relative; padding:0 0 12px 18px; font-size:13px; }
+  .tl li::before{ content:''; position:absolute; left:-6px; top:4px; width:10px; height:10px; border-radius:50%; background:var(--line); }
+  .tl li.has::before{ background:var(--teal); }
+  .tl li .tl-k{ font-weight:600; }
+  .tl li.none{ color:var(--slate-soft); }
+  .textblock{ white-space:pre-wrap; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; }
+  .badge.b-info{ background:#e7eefb; color:var(--blue); }
+  @media (max-width:980px){ .s-layout{ grid-template-columns:1fr; } .kv{ grid-template-columns:1fr; gap:2px 0; } .kv .k{ margin-top:8px; } }
   @media (max-width:980px){ .totals{ grid-template-columns:repeat(2,1fr);} .grid4{ grid-template-columns:repeat(2,1fr);} .split{ grid-template-columns:1fr; } }
 </style>
 </head>
@@ -115,6 +142,12 @@
 </header>
 
 <div class="wrap">
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab on" id="tabbtn-dashboard" role="tab" data-tab="dashboard">Dashboard</button>
+    <button type="button" class="tab" id="tabbtn-search" role="tab" data-tab="search">Search</button>
+  </div>
+
+  <div id="tab-dashboard">
   <div class="card">
     <div class="card-body">
       <div class="picker-label">Periode</div>
@@ -124,6 +157,16 @@
   </div>
 
   <div id="out"><div class="card"><div class="empty">Pilih periode dulu untuk menampilkan data.</div></div></div>
+  </div>
+
+  <div id="tab-search" hidden>
+    <div class="card"><div class="card-body">
+      <div class="picker-label">Cari tiket</div>
+      <div class="search-box"><input type="search" id="s-input" placeholder="Ketik ID tiket atau subject (mengandung kata)..." autocomplete="off" aria-label="Cari tiket"></div>
+      <div class="hint" id="s-hint">Minimal 2 karakter. Mencari di seluruh data tiket yang tersimpan di database.</div>
+    </div></div>
+    <div id="s-out"></div>
+  </div>
 </div>
 
 <script>
@@ -403,6 +446,94 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   await fetch('/api/logout', { method: 'POST' });
   window.location.href = '/login';
 });
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+  $('tab-dashboard').hidden = t !== 'dashboard';
+  $('tab-search').hidden = t !== 'search';
+  if (t === 'search') $('s-input').focus();
+}));
+
+// ---------- Search ----------
+let sTimer = null, sSeq = 0, sItems = [], sActive = null;
+const DATE_ROWS = [['open','Date Open'],['onProgress','On Progress'],['pending','Pending'],['resolved','Resolved'],['reopen','Reopen'],['closed','Closed'],['lastUpdate','Last Update']];
+
+$('s-input').addEventListener('input', () => { clearTimeout(sTimer); sTimer = setTimeout(doSearch, 300); });
+
+async function doSearch(){
+  const q = $('s-input').value.trim();
+  const out = $('s-out');
+  if (q.length < 2){ sItems = []; sActive = null; out.innerHTML = ''; return; }
+  const seq = ++sSeq;
+  out.innerHTML = '<div class="card"><div class="empty"><span class="spinner"></span>Mencari...</div></div>';
+  try {
+    const res = await fetch('/api/ticketing/search?q=' + encodeURIComponent(q));
+    const j = await res.json();
+    if (seq !== sSeq) return;
+    if (!res.ok) throw new Error(j.error || ('status ' + res.status));
+    sItems = j.items; sActive = null;
+    renderSearch(j);
+  } catch (e) {
+    if (seq !== sSeq) return;
+    out.innerHTML = '<div class="card"><div class="empty">Gagal mencari: ' + esc(e.message) + '</div></div>';
+  }
+}
+
+function renderSearch(j){
+  const out = $('s-out');
+  if (!j.items.length){ out.innerHTML = '<div class="card"><div class="empty">Tidak ada tiket yang cocok dengan "' + esc(j.q) + '".</div></div>'; return; }
+  const note = j.total > j.shown ? 'Menampilkan ' + nf(j.shown) + ' dari ' + nf(j.total) + ' tiket (terbaru dulu). Persempit kata kunci untuk hasil lebih spesifik.' : nf(j.total) + ' tiket ditemukan.';
+  const list = j.items.map((r, i) =>
+    '<button type="button" class="s-item" data-i="' + i + '"><div class="s-id">' + esc(r.id) + '</div><div class="s-sub" title="' + esc(r.subject) + '">' + esc(r.subject || '(tanpa subject)') + '</div>' +
+    '<div class="s-meta"><span>' + esc(r.status || '—') + '</span><span>' + esc(r.severity || '—') + '</span><span>' + esc(r.subCategory || '—') + '</span><span>' + fmtDt(r.openTs, r.openMode) + '</span></div></button>').join('');
+  out.innerHTML = '<div class="hint" style="margin:0 0 10px">' + note + '</div><div class="s-layout"><div class="card s-list" style="margin:0">' + list + '</div><div id="s-detail"><div class="card"><div class="empty">Klik salah satu tiket untuk melihat detailnya.</div></div></div></div>';
+  out.querySelectorAll('.s-item').forEach(b => b.addEventListener('click', () => openDetail(+b.dataset.i)));
+}
+
+async function openDetail(i){
+  const r = sItems[i]; if (!r) return;
+  sActive = r.rowId;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
+  const box = $('s-detail');
+  box.innerHTML = '<div class="card"><div class="empty"><span class="spinner"></span>Memuat detail...</div></div>';
+  try {
+    const res = await fetch('/api/ticketing/search?id=' + encodeURIComponent(r.rowId));
+    const d = await res.json();
+    if (sActive !== r.rowId) return;
+    if (!res.ok) throw new Error(d.error || ('status ' + res.status));
+    box.innerHTML = detailHtml(d);
+  } catch (e) {
+    if (sActive !== r.rowId) return;
+    box.innerHTML = '<div class="card"><div class="empty">Gagal memuat detail: ' + esc(e.message) + '</div></div>';
+  }
+}
+
+function kv(k, v, hdr){
+  const val = (v === '' || v === null || v === undefined) ? '<span class="muted">—' + (hdr === null ? ' (kolom belum terdeteksi)' : '') + '</span>' : esc(v);
+  return '<div class="k">' + k + '</div><div class="v">' + val + '</div>';
+}
+
+function detailHtml(d){
+  const tl = DATE_ROWS.map(([k, label]) => {
+    const x = d.dates[k];
+    const has = x.ts !== null && x.ts !== undefined;
+    const note = !has && x.header === null && k !== 'open' ? ' <span class="muted">(kolom belum terdeteksi)</span>' : '';
+    return '<li class="' + (has ? 'has' : 'none') + '"><span class="tl-k">' + label + '</span> — ' + (has ? fmtDt(x.ts, x.mode) : '—') + note + '</li>';
+  }).join('');
+  const block = (title, f) => '<div class="sec-title">' + title + '</div>' + (f.value ? '<div class="textblock">' + esc(f.value) + '</div>' : '<div class="muted">—' + (f.header === null ? ' (kolom belum terdeteksi)' : '') + '</div>');
+  return '<div class="card" style="margin:0"><div class="card-body">' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px"><h3 style="margin:0;font-family:var(--heading);font-size:16px">Tiket ' + esc(d.id) + '</h3>' +
+    (d.escalated ? '<span class="badge b-info">Escalated</span>' : '') + (d.period ? '<span class="muted">Periode ' + esc(d.period) + '</span>' : '') + '</div>' +
+    '<div class="kv">' + kv('Subject', d.subject.value, d.subject.header) + kv('Status', d.status.value, d.status.header) + kv('Severity', d.severity.value, d.severity.header) +
+    kv('Sub Category', d.subCategory) + kv('Detail Sub Category', d.detailSubCategory) + kv('Unit', d.unit.value, d.unit.header) + kv('Dibuat / Dibuka oleh', d.createdBy.value, d.createdBy.header) + '</div>' +
+    '<div class="sec-title">Riwayat tanggal</div><ul class="tl">' + tl + '</ul>' +
+    block('Remarks', d.remarks) + block('Feedback', d.feedback) +
+    '<details class="skipped" style="margin-top:18px"><summary style="color:var(--slate)">Semua kolom data (' + d.allColumns.length + ')</summary><div class="tbl-wrap"><table><tbody>' +
+    d.allColumns.map(c => '<tr><td style="width:34%;color:var(--slate-soft);font-weight:600">' + esc(c[0]) + '</td><td style="word-break:break-word">' + (c[1] === '' ? '<span class="muted">—</span>' : esc(c[1])) + '</td></tr>').join('') +
+    '</tbody></table></div></details></div></div>';
+}
+
 loadPeriods();
 </script>
 </body>

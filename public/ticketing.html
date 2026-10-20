@@ -136,7 +136,7 @@ const SUB_ORDER = [
 const SEVS = ['Critical','High','Medium','Low'];
 const COL_LABELS = {
   ticket_severity:'Severity', ticket_status:'Status', ticket_date_pending:'Date Pending',
-  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_date_lastupdate:'Date Last Update', ticket_id:'ID Ticket'
+  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_date_lastupdate:'Date Last Update', ticket_unit:'Unit / Posisi (untuk pengecualian Supervisor)', ticket_id:'ID Ticket'
 };
 
 let periods = [];          // dari /api/periods
@@ -242,10 +242,15 @@ function render(){
     '<div class="tcard' + (c.main ? ' main' : '') + '"><div class="t-label">' + c.l + '</div><div class="t-val">' + nf(c.v) + '</div>' +
     (c.n ? '<div class="t-note">' + c.n + '</div>' : '') + '</div>').join('') + '</div>';
 
+  const ex = data.excluded || {};
+  const exNote = ex.unitColumn
+    ? '<div class="hint" style="margin:-8px 0 16px">' + nf(ex.count) + ' tiket dikecualikan karena unit "' + esc(ex.value) + '" (kolom: ' + esc(ex.unitColumn) + '). Tidak ikut hitungan di bawah.</div>'
+    : '';
+
   const picker = '<select id="sub-select" aria-label="Detail sub category">' +
     SUB_ORDER.map(s => '<option value="' + s.key + '"' + (s.key === activeSub ? ' selected' : '') + '>' + s.label + '</option>').join('') + '</select>';
 
-  $('out').innerHTML = escalatedWarning() + missingColsWarning() + totalsHtml +
+  $('out').innerHTML = escalatedWarning() + missingColsWarning() + totalsHtml + exNote +
     '<div class="card"><div class="detail-head"><h2>Detail per Sub Category</h2>' + picker + '</div>' +
     '<div class="card-body" id="detail"></div></div>';
   $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; showOut = false; outFilter = 'Semua'; renderDetail(); });

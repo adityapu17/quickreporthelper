@@ -26,6 +26,7 @@ const FIELD_CANDIDATES = {
   ticket_date_resolved:['dateresolved', 'resolveddate', 'dateresolve', 'tglresolved'],
   ticket_date_closed: ['dateclosed', 'dateclose', 'closeddate', 'tglclosed'],
   ticket_date_lastupdate: ['datelastupdate', 'lastupdate', 'lastupdated', 'dateupdate', 'dateupdated', 'updatedat', 'tglupdate'],
+  ticket_unit:        ['unit', 'posisi', 'position', 'currentunit', 'currentposition', 'unitposisi', 'posisiunit', 'posisitiket', 'assignedunit', 'unitkerja', 'unitname'],
   ticket_subject:     ['subject', 'ticketsubject', 'title', 'judul', 'summary', 'description']
 };
 
@@ -159,6 +160,8 @@ export async function onRequestGet(context) {
       if (hit) cols.ticket_date_open = hit;
     }
 
+    const excludeValue = norm(config.ticketing_exclude_unit || 'supervisor');
+    let excludedCount = 0;
     const now = Date.now();
     const rawOf = (p, cfgKey) => (cols[cfgKey] ? p.raw[cols[cfgKey]] : null);
 
@@ -186,6 +189,8 @@ export async function onRequestGet(context) {
     SUBS.forEach(s => { rowsBySub[s.key] = []; });
 
     parsed.forEach(p => {
+      // tiket yang posisinya di unit Supervisor dikecualikan dari semua hitungan
+      if (cols.ticket_unit && excludeValue && norm(p.raw[cols.ticket_unit]).includes(excludeValue)) { excludedCount++; return; }
       totalEscalated++;
       const sk = subKeyOf(p.t.sub_category_raw);
       if (!sk) return;
@@ -313,6 +318,7 @@ export async function onRequestGet(context) {
       subs: subsOut,
       targets: TARGET_HOURS,
       escalated: { header: escHeader, source: escalatedSource },
+      excluded: { count: excludedCount, unitColumn: cols.ticket_unit, value: config.ticketing_exclude_unit || 'supervisor' },
       columns: cols,           // header yang terdeteksi (null = tidak ketemu)
       generatedAt: now
     });

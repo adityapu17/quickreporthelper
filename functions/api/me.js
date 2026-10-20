@@ -10,5 +10,5 @@ export async function onRequestGet(context) {
   if (!row || new Date(row.expires_at) <= new Date()) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  return Response.json({ email: row.user_email });
+  return Response.json({ email: row.user_email, role: (context.data && context.data.role) || 'user' });
 }

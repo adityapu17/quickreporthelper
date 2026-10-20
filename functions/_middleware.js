@@ -6,6 +6,8 @@
 // response, including Cloudflare Pages Function responses (the `public/_headers`
 // file only covers static assets).
 
+import { ensureRoleColumn, normRole } from './_lib/roles.js';
+
 // Security headers applied to every response.
 const SECURITY_HEADERS = {
   // CSP: same-origin + trusted CDNs for Chart.js, xlsx (loaded via
@@ -22,13 +24,20 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
 };
 
-async function isValidSession(request, env) {
+// Returns { email, role } for a valid session, otherwise null.
+async function getSession(request, env) {
   const cookie = request.headers.get('Cookie') || '';
   const match = cookie.match(/session=([^;]+)/);
-  if (!match) return false;
-  const row = await env.DB.prepare('SELECT expires_at FROM sessions WHERE token = ?').bind(match[1]).first();
-  if (!row) return false;
-  return new Date(row.expires_at) > new Date();
+  if (!match) return null;
+  await ensureRoleColumn(env);
+  const row = await env.DB.prepare(
+    'SELECT s.user_email AS email, s.expires_at AS expires_at, u.role AS role ' +
+    'FROM sessions s LEFT JOIN users u ON u.email = s.user_email WHERE s.token = ?'
+  ).bind(match[1]).first();
+  if (!row) return null;
+  if (!(new Date(row.expires_at) > new Date())) return null;
+  // User yang sudah dihapus (role null) diperlakukan view-only.
+  return { email: row.email, role: row.role ? normRole(row.role) : 'user' };
 }
 
 export async function onRequest(context) {
@@ -79,13 +88,24 @@ export async function onRequest(context) {
     // Table not empty — fall through to session check below.
   }
 
-  const valid = await isValidSession(request, env);
-  if (!valid) {
+  const session = await getSession(request, env);
+  if (!session) {
     if (path.startsWith('/api/')) {
       return Response.json({ error: 'Unauthorized. Silakan login.' }, { status: 401, headers: SECURITY_HEADERS });
     }
     return Response.redirect(url.origin + '/login', 302);
   }
+
+  // Role 'user' = view only: semua request tulis ke API (POST/PUT/PATCH/DELETE) ditolak.
+  const method = request.method.toUpperCase();
+  if (path.startsWith('/api/') && method !== 'GET' && method !== 'HEAD' && session.role !== 'admin') {
+    return Response.json(
+      { error: 'Akses ditolak: role "user" hanya bisa melihat data (view only). Hubungi admin.' },
+      { status: 403, headers: SECURITY_HEADERS }
+    );
+  }
+  context.data.email = session.email;
+  context.data.role = session.role;
 
   const response = await next();
   return applySecurityHeaders(response);

@@ -28,8 +28,12 @@ const FIELD_CANDIDATES = {
   ticket_date_lastupdate: ['datelastupdate', 'lastupdate', 'lastupdated', 'dateupdate', 'dateupdated', 'updatedat', 'tglupdate'],
   ticket_unit:        ['unit', 'posisi', 'position', 'currentunit', 'currentposition', 'unitposisi', 'posisiunit', 'posisitiket', 'assignedunit', 'unitkerja', 'unitname'],
   ticket_company:     ['ticketcompanyname', 'companyname', 'company', 'namaperusahaan', 'perusahaan', 'customercompany'],
-  ticket_subject:     ['subject', 'ticketsubject', 'title', 'judul', 'summary', 'description']
+  ticket_subject:     ['subject', 'ticketsubject', 'title', 'judul', 'summary'],
+  ticket_detail_subcategory: ['detailsubcategory', 'detailsubcat', 'subcategorydetail']
 };
+
+// Key config di Ticketing yang boleh ikut key lama di grup File Ticket kalau dikosongkan.
+const ALIASES = { ticket_detail_subcategory: 'ticket_detailSubCategory' };
 
 const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -85,13 +89,17 @@ function makeResolver(sampleKeys, config) {
   sampleKeys.forEach(k => { if (!(norm(k) in byNorm)) byNorm[norm(k)] = k; });
   const resolved = {};
   Object.keys(FIELD_CANDIDATES).forEach(cfgKey => {
-    const override = config[cfgKey];
+    const override = config[cfgKey] || (ALIASES[cfgKey] && config[ALIASES[cfgKey]]);
     let found = null;
     if (override && byNorm[norm(override)]) found = byNorm[norm(override)];
     if (!found) {
       for (const c of FIELD_CANDIDATES[cfgKey]) {
         if (byNorm[c]) { found = byNorm[c]; break; }
       }
+    }
+    if (!found && cfgKey === 'ticket_company') {
+      // sama seperti parser upload: kolom pertama yang namanya mengandung "company"
+      found = sampleKeys.find(k => norm(k).includes('company')) || null;
     }
     resolved[cfgKey] = found; // nama header asli atau null
   });
@@ -202,7 +210,7 @@ export async function onRequestGet(context) {
 
       // kategori (detail sub category) x perusahaan, untuk "Top 10 kategori terbanyak"
       {
-        const cat = String(p.t.detail_sub_category || '').trim() || '(Tanpa kategori)';
+        const cat = String(rawOf(p, 'ticket_detail_subcategory') || p.t.detail_sub_category || '').trim() || '(Tanpa kategori)';
         const comp = String(rawOf(p, 'ticket_company') || '').trim() || '(Tanpa nama perusahaan)';
         const cm = catMaps[sk];
         const ck = cat.toLowerCase();
@@ -235,7 +243,8 @@ export async function onRequestGet(context) {
 
       const target = sev ? TARGET_HOURS[sev] : null;
       const tid = rawOf(p, 'ticket_id') != null && rawOf(p, 'ticket_id') !== '' ? String(rawOf(p, 'ticket_id')) : String(p.t.id);
-      const tsub = String(rawOf(p, 'ticket_subject') || p.t.detail_sub_category || '');
+      const tsub = String(rawOf(p, 'ticket_subject') || '');
+      const tdet = String(rawOf(p, 'ticket_detail_subcategory') || p.t.detail_sub_category || '').trim();
       let hours = null, endTs = null, usedLast = false;
       if (openTs !== null) {
         if (state === 'outstanding') {
@@ -255,7 +264,7 @@ export async function onRequestGet(context) {
         const grp = statusGroup(rawOf(p, 'ticket_status'));
         out.outstandingByStatus[grp]++;
         out.outstandingTickets.push({
-          id: tid, subject: tsub, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), statusGroup: grp,
+          id: tid, subject: tsub, detail: tdet, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), statusGroup: grp,
           hours: hours === null ? null : Math.round(hours * 10) / 10, target,
           withinTarget: (hours !== null && target !== null) ? hours <= target : null,
           pending: pendTs !== null
@@ -285,7 +294,7 @@ export async function onRequestGet(context) {
           const dateMode = (typeof rawOpen === 'string' ? !/(Z|[+-]\d{2}:?\d{2})$/.test(rawOpen.trim()) : typeof rawOpen === 'number') ? 'plain' : 'iso';
           const endSource = pendTs !== null ? 'date pending' : resTs !== null ? 'date resolved' : cloTs !== null ? 'date closed' : lastTs !== null ? 'date last update' : null;
           out.skippedTickets.push({
-            rowId: p.t.id, id: tid, subject: tsub, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), reason,
+            rowId: p.t.id, id: tid, subject: tsub, detail: tdet, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), reason,
             openTs, endTs, endSource, dateMode,
             editable: openTs !== null && endSource !== 'date pending' && (endTs === null || endTs < openTs)
           });
@@ -296,6 +305,7 @@ export async function onRequestGet(context) {
       rowsBySub[sk].push({
         id: tid,
         subject: tsub,
+        detail: tdet,
         severity: sev || '-',
         state,
         hours: hours === null ? null : Math.round(hours * 10) / 10,

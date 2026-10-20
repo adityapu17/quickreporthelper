@@ -1,4 +1,4 @@
-// GET /api/ticketing/search?q=<teks>      -> daftar tiket (ticket id / subject mengandung teks)
+// GET /api/ticketing/search?q=<teks>      -> daftar tiket (ticket id / subject / remarks mengandung teks)
 // GET /api/ticketing/search?id=<tickets.id> -> detail satu tiket
 import { norm, parseTs, dateMode, resolveColumns } from '../../_lib/ticket-fields.js';
 
@@ -57,7 +57,7 @@ export async function onRequestGet(context) {
         remarks: field('ticket_remarks'),
         feedback: field('ticket_feedback'),
         subCategory: txt(row.sub_category_raw),
-        detailSubCategory: txt(row.detail_sub_category) || '',
+        detailSubCategory: txt(get(raw, 'ticket_detail_subcategory')) || txt(row.detail_sub_category) || '',
         dates: {
           open: date('ticket_date_open'), onProgress: date('ticket_date_onprogress'), pending: date('ticket_date_pending'),
           resolved: date('ticket_date_resolved'), reopen: date('ticket_date_reopen'), closed: date('ticket_date_closed'),
@@ -76,6 +76,7 @@ export async function onRequestGet(context) {
     if (cols.ticket_id) { conds.push("lower(COALESCE(CAST(json_extract(t.raw_json, ?) AS TEXT), '')) LIKE ? ESCAPE '\\'"); binds.push(pathOf(cols.ticket_id), like); }
     else { conds.push("CAST(t.id AS TEXT) LIKE ? ESCAPE '\\'"); binds.push(like); }
     if (cols.ticket_subject) { conds.push("lower(COALESCE(CAST(json_extract(t.raw_json, ?) AS TEXT), '')) LIKE ? ESCAPE '\\'"); binds.push(pathOf(cols.ticket_subject), like); }
+    if (cols.ticket_remarks) { conds.push("lower(COALESCE(CAST(json_extract(t.raw_json, ?) AS TEXT), '')) LIKE ? ESCAPE '\\'"); binds.push(pathOf(cols.ticket_remarks), like); }
     const where = '(' + conds.join(' OR ') + ')';
 
     const total = (await env.DB.prepare('SELECT COUNT(*) AS n FROM tickets t WHERE ' + where).bind(...binds).first()).n || 0;
@@ -98,7 +99,7 @@ export async function onRequestGet(context) {
         openTs: parseTs(openV), openMode: dateMode(openV)
       };
     });
-    return Response.json({ q, total, shown: items.length, items, columns: { id: cols.ticket_id, subject: cols.ticket_subject } });
+    return Response.json({ q, total, shown: items.length, items, columns: { id: cols.ticket_id, subject: cols.ticket_subject, remarks: cols.ticket_remarks } });
   } catch (err) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });
   }

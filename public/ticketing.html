@@ -171,8 +171,8 @@
   <div id="tab-search" hidden>
     <div class="card"><div class="card-body">
       <div class="picker-label">Cari tiket</div>
-      <div class="search-box"><input type="search" id="s-input" placeholder="Ketik ID tiket atau subject (mengandung kata)..." autocomplete="off" aria-label="Cari tiket"></div>
-      <div class="hint" id="s-hint">Minimal 2 karakter. Mencari di seluruh data tiket yang tersimpan di database.</div>
+      <div class="search-box"><input type="search" id="s-input" placeholder="Ketik ID tiket, subject, atau isi remarks (mengandung kata)..." autocomplete="off" aria-label="Cari tiket"></div>
+      <div class="hint" id="s-hint">Minimal 2 karakter. Mencari berdasarkan ID tiket, subject, atau remarks di seluruh data tiket yang tersimpan di database.</div>
     </div></div>
     <div id="s-out"></div>
   </div>
@@ -205,9 +205,7 @@ const nf = (n) => Number(n || 0).toLocaleString('id-ID');
 const pctTxt = (p) => p === null || p === undefined ? '—' : String(p).replace('.', ',') + '%';
 function dur(h){
   if (h === null || h === undefined) return '—';
-  if (h < 1) return Math.round(h * 60) + ' mnt';
-  if (h < 48) return String(Math.round(h * 10) / 10).replace('.', ',') + ' jam';
-  return String(Math.round(h / 24 * 10) / 10).replace('.', ',') + ' hari';
+  return (Math.round(h * 10) / 10).toFixed(1) + ' jam';
 }
 
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email) $('whoami').textContent = d.email; }).catch(() => {});
@@ -365,13 +363,13 @@ function renderDetail(){
     slaBar(st.onTarget, st.breach) + '</div></div></div>';
   if (s.sla.fallbackLastUpdate) h += '<div class="hint">' + nf(s.sla.fallbackLastUpdate) + ' tiket tanpa date resolved dihitung sampai date last update.</div>';
   if (s.skippedTickets.length) {
-    h += '<details class="skipped" id="skipped-box"' + (skipOpen ? ' open' : '') + '><summary>' + nf(s.skippedTickets.length) + ' tiket resolved/closed tidak bisa dihitung SLA — klik untuk lihat alasan & koreksi date resolved</summary><div class="tbl-wrap"><table><thead><tr><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th>Date Open</th><th>Date Selesai (dipakai)</th><th>Alasan</th><th>Date Resolved baru</th></tr></thead><tbody>' +
+    h += '<details class="skipped" id="skipped-box"' + (skipOpen ? ' open' : '') + '><summary>' + nf(s.skippedTickets.length) + ' tiket resolved/closed tidak bisa dihitung SLA — klik untuk lihat alasan & koreksi date resolved</summary><div class="tbl-wrap"><table><thead><tr><th>ID Tiket</th><th>Detail Sub Category</th><th>Severity</th><th>Status</th><th>Date Open</th><th>Date Selesai (dipakai)</th><th>Alasan</th><th>Date Resolved baru</th></tr></thead><tbody>' +
       s.skippedTickets.map((r, i) => {
         const endTxt = r.endTs === null ? '—' : fmtDt(r.endTs, r.dateMode) + '<div class="muted">' + esc(r.endSource || '') + '</div>';
-        const edit = r.editable
+        const edit = (r.editable && window.INTAN_ROLE === 'admin')
           ? '<div class="edit-row" data-i="' + i + '"><input type="datetime-local" step="1" aria-label="Date resolved baru tiket ' + esc(r.id) + '"><button type="button" disabled>Simpan</button><span class="edit-msg"></span></div>'
-          : '<span class="muted">' + (r.endSource === 'date pending' ? 'Pakai date pending — koreksi di data sumber' : 'Tidak bisa diedit dari sini') + '</span>';
-        return '<tr><td>' + esc(r.id) + '</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td>' + fmtDt(r.openTs, r.dateMode) + '</td><td>' + endTxt + '</td><td>' + esc(r.reason) + '</td><td>' + edit + '</td></tr>';
+          : '<span class="muted">' + (r.editable && window.INTAN_ROLE !== 'admin' ? 'Hanya admin yang bisa mengedit' : (r.endSource === 'date pending' ? 'Pakai date pending — koreksi di data sumber' : 'Tidak bisa diedit dari sini')) + '</span>';
+        return '<tr><td>' + esc(r.id) + '</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.detail) + '">' + esc(r.detail) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td>' + fmtDt(r.openTs, r.dateMode) + '</td><td>' + endTxt + '</td><td>' + esc(r.reason) + '</td><td>' + edit + '</td></tr>';
       }).join('') +
       '</tbody></table></div><div class="hint" style="padding:8px 14px">Date resolved baru disimpan ke database untuk baris tiket itu. Kalau periode ini di-upload ulang, koreksi ini tertimpa data file.</div></details>';
   }
@@ -392,16 +390,16 @@ function renderDetail(){
   // 14. top 10
   h += '<div class="sec-title">Longest Ticket by Resolve Time <span style="text-transform:none;letter-spacing:0;font-weight:400">(10 tiket resolved/closed · ' + esc(s.label) + ')</span></div>';
   if (!s.top10.length) h += '<div class="hint">Tidak ada tiket resolved/closed dengan durasi yang bisa dihitung.</div>';
-  else h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th class="num">Durasi</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
+  else h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Detail Sub Category</th><th>Severity</th><th>Status</th><th class="num">Durasi</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
     s.top10.map((r, i) => {
       const stl = r.state === 'outstanding' ? 'Outstanding' : (r.state === 'closed' ? 'Closed' : 'Resolved');
       const b = r.withinTarget === null ? '<span class="badge b-na">—</span>'
         : (r.withinTarget ? '<span class="badge b-ok">' + (r.state === 'outstanding' ? 'On Track' : 'On Target') + '</span>' : '<span class="badge b-bad">Breach</span>');
-      return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + stl + '</td><td class="num">' + dur(r.hours) + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.detail) + '">' + esc(r.detail) + '</td><td>' + esc(r.severity) + '</td><td>' + stl + '</td><td class="num">' + dur(r.hours) + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 
   // 15. top 10 kategori terbanyak (klik untuk lihat perusahaan)
-  h += '<div class="sec-title">Top 10 Kategori Tiket Terbanyak <span style="text-transform:none;letter-spacing:0;font-weight:400">(' + esc(s.label) + ' · klik kategori untuk lihat perusahaan)</span></div>';
+  h += '<div class="sec-title">Top 10 Kategori Tiket Terbanyak </div>';
   if (!s.topCategories.length) h += '<div class="hint">Belum ada tiket di sub category ini.</div>';
   else h += '<div class="cat-list">' + s.topCategories.map((c, i) => {
     const share = s.total ? Math.round(c.count / s.total * 1000) / 10 : 0;
@@ -409,7 +407,7 @@ function renderDetail(){
     let item = '<button type="button" class="cat-item' + (open ? ' on' : '') + '" data-c="' + i + '" aria-expanded="' + open + '"><span class="cat-rank">' + (i + 1) + '</span><span class="cat-name" title="' + esc(c.name) + '">' + esc(c.name) + '</span><span class="cat-count">' + nf(c.count) + ' <span class="muted">(' + String(share).replace('.', ',') + '%)</span></span></button>';
     if (open) {
       const rest = c.otherCompanies.distinct ? '<tr><td colspan="3" class="muted">+ ' + nf(c.otherCompanies.distinct) + ' perusahaan lain (' + nf(c.otherCompanies.count) + ' tiket)</td></tr>' : '';
-      item += '<div class="cat-detail"><div class="muted" style="margin-bottom:8px">Perusahaan dengan tiket terbanyak untuk kategori ini:</div><div class="tbl-wrap"><table><thead><tr><th>#</th><th>Perusahaan (ticket_company_name)</th><th class="num">Jumlah Tiket</th></tr></thead><tbody>' +
+      item += '<div class="cat-detail"><div class="tbl-wrap"><table><thead><tr><th>#</th><th>Company Name</th><th class="num">Jumlah Tiket</th></tr></thead><tbody>' +
         c.companies.map((x, j) => '<tr><td>' + (j + 1) + '</td><td>' + esc(x.name) + '</td><td class="num">' + nf(x.count) + '</td></tr>').join('') + rest + '</tbody></table></div></div>';
     }
     return item;
@@ -458,10 +456,10 @@ function outstandingPanel(s){
   h += '<div class="ofilters"><button type="button" class="chip' + (outFilter === 'Semua' ? ' on' : '') + '" data-f="Semua">Semua<span class="cnt">' + nf(s.outstanding) + '</span></button>' +
     groups.map(g => '<button type="button" class="chip' + (outFilter === g ? ' on' : '') + '" data-f="' + g + '">' + g + '<span class="cnt">' + nf(s.outstandingByStatus[g]) + '</span></button>').join('') + '</div>';
   if (!list.length) return h + '<div class="hint">Tidak ada tiket dengan status ini.</div>';
-  h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th class="num">Umur</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
+  h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Detail Sub Category</th><th>Severity</th><th>Status</th><th class="num">Umur</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
     list.map((r, i) => {
       const b = r.withinTarget === null ? '<span class="badge b-na">—</span>' : (r.withinTarget ? '<span class="badge b-ok">On Track</span>' : '<span class="badge b-bad">Breach</span>');
-      return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td class="num">' + dur(r.hours) + (r.pending ? ' <span class="badge b-na" title="Dihitung sampai date pending">pending</span>' : '') + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.detail) + '">' + esc(r.detail) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td class="num">' + dur(r.hours) + (r.pending ? ' <span class="badge b-na" title="Dihitung sampai date pending">pending</span>' : '') + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
     }).join('') + '</tbody></table></div>' +
     '<div class="hint">Urut dari yang paling lama. Umur = date open → sekarang (atau → date pending kalau terisi).</div>';
   return h;
@@ -482,7 +480,7 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 
 // ---------- Search ----------
 let sTimer = null, sSeq = 0, sItems = [], sActive = null;
-const DATE_ROWS = [['open','Date Open'],['onProgress','On Progress'],['pending','Pending'],['resolved','Resolved'],['reopen','Reopen'],['closed','Closed'],['lastUpdate','Last Update']];
+const DATE_ROWS = [['open','Date Open'],['onProgress','On Progress'],['pending','Pending'],['resolved','Resolved'],['reopen','Reopen'],['lastUpdate','Last Update'],['closed','Closed']];
 
 $('s-input').addEventListener('input', () => { clearTimeout(sTimer); sTimer = setTimeout(doSearch, 300); });
 

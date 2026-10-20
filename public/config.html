@@ -82,6 +82,7 @@
 </header>
 <div class="app-tabs">
   <a href="/config" class="active">Konfigurasi Kolom</a>
+  <a href="/users">Kelola User</a>
 </div>
 <div class="wrap">
   <div id="groups"></div>
@@ -116,7 +117,6 @@ const FIELD_DEFAULTS = {
   voice_datetime: 'datetime',
   ticketing_escalated: 'is_escalated',
   ticket_unit: '',
-  ticket_company: 'ticket_company_name',
   ticket_created_by: '',
   ticket_remarks: '',
   ticket_feedback: '',
@@ -130,6 +130,7 @@ const FIELD_DEFAULTS = {
   ticket_date_resolved: '',
   ticket_date_closed: '',
   ticket_subject: '',
+  ticket_detail_subcategory: '',
   daily_ticket_source: 'source_name',
   daily_ticket_origin: 'date_origin_interaction',
   daily_ticket_channel: 'channel_name',
@@ -175,7 +176,6 @@ const FIELD_LABELS = {
   ticket_feedback: 'Feedback (tab Search) — kosongkan = auto-detect',
   ticket_date_onprogress: 'Date On Progress (tab Search) — kosongkan = auto-detect',
   ticket_date_reopen: 'Date Reopen (tab Search) — kosongkan = auto-detect',
-  ticket_company: 'Nama Perusahaan (Top kategori → perusahaan) — default ticket_company_name',
   ticket_unit: 'Kolom Unit / Posisi tiket (dipakai untuk pengecualian) — kosongkan = auto-detect',
   ticketing_exclude_unit: 'Kecualikan tiket yang unitnya mengandung teks ini (default: supervisor)',
   ticketing_escalated: 'Kolom Escalated (tiket dihitung kalau isinya "escalated")',
@@ -185,7 +185,8 @@ const FIELD_LABELS = {
   ticket_date_pending: 'Date Pending — kalau terisi, SLA dihitung sampai tanggal ini',
   ticket_date_resolved: 'Date Resolved — dasar SLA tiket resolved',
   ticket_date_closed: 'Date Closed (opsional, fallback kalau Date Resolved kosong)',
-  ticket_subject: 'Subject / Judul Tiket (untuk tabel Top 10)',
+  ticket_subject: 'Subject tiket — dipakai di tab Search (pencarian, list hasil, detail)',
+  ticket_detail_subcategory: 'Detail Sub Category — dipakai di Longest Ticket, Top 10 Kategori, dan detail Search (kosong = ikut File Ticket → detailSubCategory)',
   daily_ticket_source: 'Source Name (exclude "EOS Monitoring")',
   daily_ticket_origin: 'Tanggal Origin Interaksi — dasar Month-to-Date & grafik harian',
   daily_ticket_channel: 'Channel (Email/Whatsapp/Manual/Voice)',
@@ -204,7 +205,7 @@ const FIELD_LABELS = {
   daily_detail_channel: 'Channel (Email/Whatsapp)'
 };
 const GROUPS = [
-  { title: 'Ticketing (halaman Ticketing — tiket escalated)', keys: ['ticketing_escalated','ticket_unit','ticketing_exclude_unit','ticket_company','ticket_created_by','ticket_remarks','ticket_feedback','ticket_date_onprogress','ticket_date_reopen','ticket_severity','ticket_status','ticket_date_pending','ticket_date_resolved','ticket_date_closed','ticket_date_lastupdate','ticket_subject'] },
+  { title: 'Ticketing (halaman Ticketing — tiket escalated)', keys: ['ticketing_escalated','ticket_unit','ticketing_exclude_unit','ticket_created_by','ticket_remarks','ticket_feedback','ticket_date_onprogress','ticket_date_reopen','ticket_severity','ticket_status','ticket_date_pending','ticket_date_resolved','ticket_date_closed','ticket_date_lastupdate','ticket_subject','ticket_detail_subcategory'] },
   { title: 'File Ticket', keys: ['ticket_id','ticket_channel_name','ticket_subCategory','ticket_mainCategory','ticket_is_escalated','ticket_source_name','ticket_date_start','ticket_date_open','ticket_date_end','ticket_detailSubCategory','ticket_customer_hp','ticket_customer_email','ticket_customer_category','ticket_company'] },
   { title: 'File Detail Interaction (non-voice)', keys: ['detail_id_interaction','detail_session_id','detail_channel_name','detail_action_type','detail_date_received'] },
   { title: 'File Detail Interaction Voice', keys: ['voice_event','voice_talktime','voice_datetime'] },

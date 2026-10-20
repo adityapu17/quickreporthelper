@@ -156,3 +156,76 @@
     }
   })();
 })();
+
+// ---------------------------------------------------------------------------
+// Role: 'admin' boleh tulis/ubah data, 'user' view only. Server tetap yang
+// menolak request tulis (403) — bagian ini hanya menyembunyikan kontrol tulis
+// dan memberi pesan yang jelas.
+// ---------------------------------------------------------------------------
+(function () {
+  window.INTAN_ROLE = null;
+
+  var RO_CSS = [
+    // Monthly: simpan ke DB
+    '#btn-save-curr,#btn-save-prev',
+    // Kelola Database / Kelola User: hapus & tambah
+    '.del-btn,#add-user-card',
+    // Konfigurasi Kolom
+    '#btn-save',
+    // Ticketing: koreksi date resolved
+    '.edit-row',
+    // Summary: form input, bulk upload, edit/hapus baris
+    '#formChannel,#formProduk,#bulkUploadChannelBtn,.edit-banner,.icon-btn',
+    // Rostering: buat/simpan/ubah roster
+    '#openCalendarBtn,#saveAllShiftsBtn,#autoFillWeekendsBtn,#clearAllBtn,#addAgentDropdownBtn,.delete-roster'
+  ].map(function (sel) {
+    return sel.split(',').map(function (x) { return 'body[data-role="user"] ' + x; }).join(',');
+  }).join(',') + '{display:none !important;}' +
+  'body[data-role="user"] input[data-key]{pointer-events:none;background:#f3f5f7;color:#6b7a8f;}' +
+  'body[data-role="user"] #view-input>.card{display:none !important;}' +
+  'body[data-role="user"] #view-input::after{content:"Mode view only: input data hanya untuk admin.";display:block;padding:24px;color:#6b7a8f;font-size:13.5px;}' +
+  'body[data-role="user"]::after{content:"View only";position:fixed;right:16px;bottom:16px;background:#1b2430;color:#fff;font:600 11.5px/1 sans-serif;padding:8px 12px;border-radius:999px;opacity:.85;pointer-events:none;z-index:9999;}';
+
+  function toast(msg) {
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#b3432f;color:#fff;padding:10px 18px;border-radius:8px;font:600 13px sans-serif;z-index:10000;box-shadow:0 4px 14px rgba(0,0,0,.2);';
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 3200);
+  }
+
+  // Blok request tulis dari sisi klien untuk role user (server juga menolak).
+  var nativeFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    var url = typeof input === 'string' ? input : ((input && input.url) || '');
+    if (window.INTAN_ROLE === 'user' && method !== 'GET' && method !== 'HEAD' &&
+        url.indexOf('/api/') !== -1 && !/\/api\/(login|logout)(\?|$)/.test(url)) {
+      toast('Role user hanya bisa melihat data (view only).');
+      return Promise.resolve(new Response(JSON.stringify({ error: 'Role user hanya bisa melihat data (view only).' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }));
+    }
+    return nativeFetch.apply(this, arguments);
+  };
+
+  function apply(role) {
+    window.INTAN_ROLE = role;
+    document.body.setAttribute('data-role', role || '');
+    if (role === 'user' && !document.getElementById('intan-ro-style')) {
+      var st = document.createElement('style');
+      st.id = 'intan-ro-style';
+      st.textContent = RO_CSS;
+      document.head.appendChild(st);
+    }
+    document.dispatchEvent(new CustomEvent('intan-role', { detail: role }));
+  }
+
+  function init() {
+    nativeFetch('/api/me', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) apply(d.role === 'user' ? 'user' : 'admin'); })
+      .catch(function () {});
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();

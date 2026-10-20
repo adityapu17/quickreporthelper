@@ -23,7 +23,8 @@ export function dateMode(v) {
 
 export const DETAIL_CANDIDATES = {
   ticket_id:             ['ticketid', 'idticket', 'noticket', 'ticketno', 'ticketnumber', 'id'],
-  ticket_subject:        ['subject', 'ticketsubject', 'title', 'judul', 'summary', 'description'],
+  ticket_subject:        ['subject', 'ticketsubject', 'title', 'judul', 'summary'],
+  ticket_detail_subcategory: ['detailsubcategory', 'detailsubcat', 'subcategorydetail'],
   ticket_status:         ['status', 'ticketstatus', 'statusticket'],
   ticket_severity:       ['severity', 'ticketseverity', 'severitylevel', 'priority', 'prioritas'],
   ticket_unit:           ['unit', 'posisi', 'position', 'currentunit', 'currentposition', 'unitposisi', 'posisiunit', 'posisitiket', 'assignedunit', 'unitkerja', 'unitname'],
@@ -45,7 +46,7 @@ export function resolveColumns(keys, config) {
   const out = {};
   Object.keys(DETAIL_CANDIDATES).forEach(cfgKey => {
     let found = null;
-    const override = config[cfgKey];
+    const override = config[cfgKey] || (cfgKey === 'ticket_detail_subcategory' ? config.ticket_detailSubCategory : '');
     if (override && byNorm[norm(override)]) found = byNorm[norm(override)];
     if (!found) for (const c of DETAIL_CANDIDATES[cfgKey]) { if (byNorm[c]) { found = byNorm[c]; break; } }
     out[cfgKey] = found;

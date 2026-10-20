@@ -87,6 +87,11 @@
   .ofilters .chip .cnt{ opacity:.75; margin-left:5px; font-variant-numeric:tabular-nums; }
   details.skipped{ margin-top:10px; border:1px solid var(--line); border-radius:10px; background:#fff; }
   details.skipped summary{ cursor:pointer; padding:9px 14px; font-size:12.5px; font-weight:600; color:var(--amber); }
+  .edit-row input[type=datetime-local]{ font-family:inherit; font-size:12.5px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; width:200px; }
+  .edit-row button{ font-family:inherit; font-size:12px; font-weight:600; padding:6px 12px; border-radius:6px; border:1px solid var(--teal); background:var(--teal); color:#fff; cursor:pointer; margin-left:6px; }
+  .edit-row button:disabled{ opacity:.45; cursor:not-allowed; }
+  .edit-msg{ display:block; font-size:11.5px; margin-top:4px; color:var(--red); }
+  .muted{ color:var(--slate-soft); font-size:12px; }
   details.skipped .tbl-wrap{ border:0; border-top:1px solid var(--line); border-radius:0 0 10px 10px; }
   .empty{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13.5px; }
   .warn{ background:var(--amber-soft); border:1px solid #ecd49a; color:#7a5510; border-radius:10px; padding:10px 14px; font-size:12.5px; margin-bottom:16px; line-height:1.5; }
@@ -139,7 +144,7 @@ let selected = new Set();  // "year-month"
 let selectAll = false;
 let data = null;           // response /api/ticketing
 let activeSub = 'emeterai';
-let showOut = false, outFilter = 'Semua';
+let showOut = false, outFilter = 'Semua', skipOpen = false;
 let reqSeq = 0, debounceT = null;
 
 const $ = (id) => document.getElementById(id);
@@ -188,7 +193,7 @@ $('chips').addEventListener('click', (e) => {
   debounceT = setTimeout(load, 200);
 });
 
-async function load(){
+async function load(silent){
   const out = $('out');
   if (!selectAll && !selected.size){
     data = null;
@@ -196,7 +201,7 @@ async function load(){
     return;
   }
   const seq = ++reqSeq;
-  out.innerHTML = '<div class="card"><div class="empty"><span class="spinner"></span>Memuat data...</div></div>';
+  if (!silent) out.innerHTML = '<div class="card"><div class="empty"><span class="spinner"></span>Memuat data...</div></div>';
   try {
     const q = selectAll ? 'all' : Array.from(selected).join(',');
     const res = await fetch('/api/ticketing?periods=' + encodeURIComponent(q));
@@ -247,6 +252,21 @@ function render(){
   renderDetail();
 }
 
+// Tanggal ditampilkan/ditulis sesuai format sumber: 'iso' = UTC (tampil lokal), 'plain' = teks tanpa zona (tampil apa adanya).
+function fmtDt(ms, mode){
+  if (ms === null || ms === undefined) return '—';
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (mode === 'plain') return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+  return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function inputToMs(v, mode){ if (!v) return null; const t = mode === 'plain' ? Date.parse(v.length === 16 ? v + ':00Z' : v + 'Z') : new Date(v).getTime(); return isNaN(t) ? null : t; }
+function msToStored(ms, mode){
+  if (mode !== 'plain') return new Date(ms).toISOString();
+  const d = new Date(ms), pad = (n) => String(n).padStart(2, '0');
+  return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+}
+
 function slaBar(on, bad){
   const tot = on + bad;
   if (!tot) return '<div class="hint">Belum ada tiket yang bisa dihitung.</div>';
@@ -288,9 +308,15 @@ function renderDetail(){
     slaBar(st.onTarget, st.breach) + '</div></div></div>';
   if (s.sla.fallbackLastUpdate) h += '<div class="hint">' + nf(s.sla.fallbackLastUpdate) + ' tiket tanpa date resolved dihitung sampai date last update.</div>';
   if (s.skippedTickets.length) {
-    h += '<details class="skipped"><summary>' + nf(s.skippedTickets.length) + ' tiket resolved/closed tidak bisa dihitung SLA — klik untuk lihat alasannya</summary><div class="tbl-wrap"><table><thead><tr><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th>Alasan</th></tr></thead><tbody>' +
-      s.skippedTickets.map(r => '<tr><td>' + esc(r.id) + '</td><td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td>' + esc(r.reason) + '</td></tr>').join('') +
-      '</tbody></table></div></details>';
+    h += '<details class="skipped" id="skipped-box"' + (skipOpen ? ' open' : '') + '><summary>' + nf(s.skippedTickets.length) + ' tiket resolved/closed tidak bisa dihitung SLA — klik untuk lihat alasan & koreksi date resolved</summary><div class="tbl-wrap"><table><thead><tr><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th>Date Open</th><th>Date Selesai (dipakai)</th><th>Alasan</th><th>Date Resolved baru</th></tr></thead><tbody>' +
+      s.skippedTickets.map((r, i) => {
+        const endTxt = r.endTs === null ? '—' : fmtDt(r.endTs, r.dateMode) + '<div class="muted">' + esc(r.endSource || '') + '</div>';
+        const edit = r.editable
+          ? '<div class="edit-row" data-i="' + i + '"><input type="datetime-local" step="1" aria-label="Date resolved baru tiket ' + esc(r.id) + '"><button type="button" disabled>Simpan</button><span class="edit-msg"></span></div>'
+          : '<span class="muted">' + (r.endSource === 'date pending' ? 'Pakai date pending — koreksi di data sumber' : 'Tidak bisa diedit dari sini') + '</span>';
+        return '<tr><td>' + esc(r.id) + '</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td>' + fmtDt(r.openTs, r.dateMode) + '</td><td>' + endTxt + '</td><td>' + esc(r.reason) + '</td><td>' + edit + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div><div class="hint" style="padding:8px 14px">Date resolved baru disimpan ke database untuk baris tiket itu. Kalau periode ini di-upload ulang, koreksi ini tertimpa data file.</div></details>';
   }
   h += '<div class="hint">Durasi = date open → date resolved (kalau kosong: date closed, lalu date last update); kalau date pending terisi, date open → date pending.</div>';
 
@@ -318,6 +344,33 @@ function renderDetail(){
     }).join('') + '</tbody></table></div>';
 
   $('detail').innerHTML = h;
+  const sk = $('skipped-box');
+  if (sk) {
+    sk.addEventListener('toggle', () => { skipOpen = sk.open; });
+    sk.querySelectorAll('.edit-row').forEach(row => {
+      const r = s.skippedTickets[+row.dataset.i];
+      const inp = row.querySelector('input'), btn = row.querySelector('button'), msg = row.querySelector('.edit-msg');
+      inp.addEventListener('input', () => {
+        const ms = inputToMs(inp.value, r.dateMode);
+        msg.textContent = '';
+        btn.disabled = ms === null;
+        if (ms !== null && ms < r.openTs) { msg.textContent = 'Harus sama atau setelah date open.'; btn.disabled = true; }
+      });
+      btn.addEventListener('click', async () => {
+        const ms = inputToMs(inp.value, r.dateMode);
+        if (ms === null || ms < r.openTs) return;
+        if (!confirm('Simpan Date Resolved tiket ' + r.id + ' = ' + fmtDt(ms, r.dateMode) + ' ?\nIni mengubah data di database.')) return;
+        btn.disabled = true; btn.textContent = 'Menyimpan...';
+        try {
+          const res = await fetch('/api/ticketing/resolved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketRowId: r.rowId, value: msToStored(ms, r.dateMode) }) });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error || ('status ' + res.status));
+          skipOpen = true;
+          await load(true);
+        } catch (e) { msg.textContent = 'Gagal: ' + e.message; btn.disabled = false; btn.textContent = 'Simpan'; }
+      });
+    });
+  }
   const co = $('card-out');
   if (co) co.addEventListener('click', () => { showOut = !showOut; outFilter = 'Semua'; renderDetail(); });
   document.querySelectorAll('#detail .ofilters .chip').forEach(b => b.addEventListener('click', () => { outFilter = b.dataset.f; renderDetail(); }));

@@ -260,8 +260,13 @@ export async function onRequestGet(context) {
           else if (endTs === null) reason = 'Tidak ada date pending / resolved / closed / last update';
           else if (endTs < openTs) reason = 'Tanggal selesai lebih awal dari date open';
           else if (!sev) reason = 'Severity tidak dikenali';
+          const rawOpen = rawOf(p, 'ticket_date_open') ?? p.t.date_open;
+          const dateMode = (typeof rawOpen === 'string' ? !/(Z|[+-]\d{2}:?\d{2})$/.test(rawOpen.trim()) : typeof rawOpen === 'number') ? 'plain' : 'iso';
+          const endSource = pendTs !== null ? 'date pending' : resTs !== null ? 'date resolved' : cloTs !== null ? 'date closed' : lastTs !== null ? 'date last update' : null;
           out.skippedTickets.push({
-            id: tid, subject: tsub, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), reason
+            rowId: p.t.id, id: tid, subject: tsub, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), reason,
+            openTs, endTs, endSource, dateMode,
+            editable: openTs !== null && endSource !== 'date pending' && (endTs === null || endTs < openTs)
           });
         }
         if (usedLast && hours !== null && sev) out.sla_fallbackLastUpdate++;

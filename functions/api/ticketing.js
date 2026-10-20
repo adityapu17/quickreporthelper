@@ -25,6 +25,7 @@ const FIELD_CANDIDATES = {
   ticket_date_pending:['datepending', 'pendingdate', 'datependingticket', 'tglpending'],
   ticket_date_resolved:['dateresolved', 'resolveddate', 'dateresolve', 'tglresolved'],
   ticket_date_closed: ['dateclosed', 'dateclose', 'closeddate', 'tglclosed'],
+  ticket_date_lastupdate: ['datelastupdate', 'lastupdate', 'lastupdated', 'dateupdate', 'dateupdated', 'updatedat', 'tglupdate'],
   ticket_subject:     ['subject', 'ticketsubject', 'title', 'judul', 'summary', 'description']
 };
 
@@ -57,6 +58,16 @@ function normSeverity(v) {
   if (s.includes('med')) return 'Medium';
   if (s.includes('low')) return 'Low';
   return null;
+}
+
+function statusGroup(v) {
+  const n = norm(v);
+  if (!n) return 'Lainnya';
+  if (n.includes('reopen')) return 'Reopen';
+  if (n.includes('pending')) return 'Pending';
+  if (n.includes('progress')) return 'On Progress';
+  if (n.includes('open')) return 'Open';
+  return 'Lainnya';
 }
 
 function subKeyOf(raw) {
@@ -110,15 +121,27 @@ export async function onRequestGet(context) {
     const config = {};
     cfgRows.forEach(r => { config[r.key] = r.value; });
 
-    // --- tiket escalated (batch IN <= 90 param) ---
+    // --- tiket escalated: kolom escalated bisa diatur di Setting ---
+    const escHeader = (config.ticketing_escalated || config.ticket_is_escalated || 'is_escalated').trim();
+    const escPath = '$."' + escHeader.replace(/["\\]/g, '') + '"';
     const ids = chosen.map(p => p.id);
-    const tickets = [];
-    for (let i = 0; i < ids.length; i += 90) {
-      const part = ids.slice(i, i + 90);
-      const sql = 'SELECT id, period_id, sub_category_raw, detail_sub_category, date_open, raw_json FROM tickets ' +
-                  'WHERE escalated = 1 AND period_id IN (' + part.map(() => '?').join(',') + ')';
-      const { results } = await env.DB.prepare(sql).bind(...part).all();
-      (results || []).forEach(r => tickets.push(r));
+    const fetchTickets = async (where, extraBind) => {
+      const out = [];
+      for (let i = 0; i < ids.length; i += 80) {
+        const part = ids.slice(i, i + 80);
+        const sql = 'SELECT id, period_id, sub_category_raw, detail_sub_category, date_open, raw_json FROM tickets WHERE ' + where +
+                    ' AND period_id IN (' + part.map(() => '?').join(',') + ')';
+        const { results } = await env.DB.prepare(sql).bind(...extraBind, ...part).all();
+        (results || []).forEach(r => out.push(r));
+      }
+      return out;
+    };
+    let tickets = await fetchTickets("lower(trim(COALESCE(json_extract(raw_json, ?), ''))) = 'escalated'", [escPath]);
+    let escalatedSource = 'raw';
+    if (!tickets.length) {
+      // header tidak ketemu di raw_json -> pakai flag yang disimpan saat upload
+      tickets = await fetchTickets('escalated = 1', []);
+      if (tickets.length) escalatedSource = 'fallback';
     }
 
     // --- resolve header dari gabungan key semua baris (sample 200 baris pertama) ---
@@ -148,6 +171,9 @@ export async function onRequestGet(context) {
         outstanding: 0, resolved: 0, closed: 0, done: 0,
         sla: { bySeverity: {}, total: { counted: 0, onTarget: 0, breach: 0, pct: null }, skipped: 0 },
         outstandingSla: { bySeverity: {}, total: { count: 0, onTrack: 0, breach: 0 } },
+        sla_fallbackLastUpdate: 0,
+        outstandingByStatus: { Open: 0, 'On Progress': 0, Pending: 0, Reopen: 0, Lainnya: 0 },
+        outstandingTickets: [], skippedTickets: [],
         top10: []
       };
       SEVERITIES.forEach(sv => {
@@ -173,6 +199,7 @@ export async function onRequestGet(context) {
       const pendTs = parseTs(rawOf(p, 'ticket_date_pending'));
       const resTs = parseTs(rawOf(p, 'ticket_date_resolved'));
       const cloTs = parseTs(rawOf(p, 'ticket_date_closed'));
+      const lastTs = parseTs(rawOf(p, 'ticket_date_lastupdate'));
       const statusTxt = String(rawOf(p, 'ticket_status') || '').toLowerCase();
 
       // status akhir
@@ -186,12 +213,15 @@ export async function onRequestGet(context) {
       }
 
       const target = sev ? TARGET_HOURS[sev] : null;
-      let hours = null, endTs = null;
+      const tid = rawOf(p, 'ticket_id') != null && rawOf(p, 'ticket_id') !== '' ? String(rawOf(p, 'ticket_id')) : String(p.t.id);
+      const tsub = String(rawOf(p, 'ticket_subject') || p.t.detail_sub_category || '');
+      let hours = null, endTs = null, usedLast = false;
       if (openTs !== null) {
         if (state === 'outstanding') {
           endTs = pendTs !== null ? pendTs : now;
         } else {
-          endTs = pendTs !== null ? pendTs : (resTs !== null ? resTs : cloTs);
+          endTs = pendTs !== null ? pendTs : (resTs !== null ? resTs : (cloTs !== null ? cloTs : lastTs));
+          if (pendTs === null && resTs === null && cloTs === null && lastTs !== null) usedLast = true;
         }
         if (endTs !== null) {
           hours = (endTs - openTs) / 3600000;
@@ -201,6 +231,14 @@ export async function onRequestGet(context) {
 
       if (state === 'outstanding') {
         out.outstanding++;
+        const grp = statusGroup(rawOf(p, 'ticket_status'));
+        out.outstandingByStatus[grp]++;
+        out.outstandingTickets.push({
+          id: tid, subject: tsub, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), statusGroup: grp,
+          hours: hours === null ? null : Math.round(hours * 10) / 10, target,
+          withinTarget: (hours !== null && target !== null) ? hours <= target : null,
+          pending: pendTs !== null
+        });
         if (hours !== null && sev) {
           const o = out.outstandingSla.bySeverity[sev];
           o.count++; out.outstandingSla.total.count++;
@@ -217,12 +255,21 @@ export async function onRequestGet(context) {
           else { s.breach++; out.sla.total.breach++; }
         } else {
           out.sla.skipped++;
+          let reason = 'Tidak bisa dihitung';
+          if (openTs === null) reason = 'Date open kosong';
+          else if (endTs === null) reason = 'Tidak ada date pending / resolved / closed / last update';
+          else if (endTs < openTs) reason = 'Tanggal selesai lebih awal dari date open';
+          else if (!sev) reason = 'Severity tidak dikenali';
+          out.skippedTickets.push({
+            id: tid, subject: tsub, severity: sev || '-', status: String(rawOf(p, 'ticket_status') || ''), reason
+          });
         }
+        if (usedLast && hours !== null && sev) out.sla_fallbackLastUpdate++;
       }
 
       rowsBySub[sk].push({
-        id: rawOf(p, 'ticket_id') != null && rawOf(p, 'ticket_id') !== '' ? String(rawOf(p, 'ticket_id')) : String(p.t.id),
-        subject: String(rawOf(p, 'ticket_subject') || p.t.detail_sub_category || ''),
+        id: tid,
+        subject: tsub,
         severity: sev || '-',
         state,
         hours: hours === null ? null : Math.round(hours * 10) / 10,
@@ -241,6 +288,8 @@ export async function onRequestGet(context) {
       });
       const t = o.sla.total;
       t.pct = t.counted ? Math.round((t.onTarget / t.counted) * 1000) / 10 : null;
+      o.outstandingTickets.sort((a, b) => (b.hours === null) - (a.hours === null) || b.hours - a.hours);
+      o.sla.fallbackLastUpdate = o.sla_fallbackLastUpdate; delete o.sla_fallbackLastUpdate;
       o.top10 = rowsBySub[s.key]
         .filter(r => r.hours !== null)
         .sort((a, b) => b.hours - a.hours)
@@ -258,6 +307,7 @@ export async function onRequestGet(context) {
       },
       subs: subsOut,
       targets: TARGET_HOURS,
+      escalated: { header: escHeader, source: escalatedSource },
       columns: cols,           // header yang terdeteksi (null = tidak ketemu)
       generatedAt: now
     });

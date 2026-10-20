@@ -77,6 +77,17 @@
   .bar > span{ display:block; height:100%; background:var(--green); }
   .bar-legend{ display:flex; justify-content:space-between; font-size:12px; margin-top:6px; color:var(--slate); }
   .bar-legend b{ font-variant-numeric:tabular-nums; }
+  .mini.clickable{ cursor:pointer; text-align:left; font-family:inherit; color:inherit; width:100%; transition:border-color .15s ease, box-shadow .15s ease, transform .1s ease; }
+  .mini.clickable:hover{ border-color:var(--teal); box-shadow:0 2px 8px rgba(15,122,107,.12); }
+  .mini.clickable:active{ transform:scale(.985); }
+  .mini.clickable.open{ border-color:var(--teal); background:var(--teal-soft); }
+  .mini .m-hint{ font-size:11px; color:var(--teal); margin-top:4px; font-weight:600; }
+  .ofilters{ display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 12px; }
+  .ofilters .chip{ padding:5px 12px; font-size:12px; }
+  .ofilters .chip .cnt{ opacity:.75; margin-left:5px; font-variant-numeric:tabular-nums; }
+  details.skipped{ margin-top:10px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  details.skipped summary{ cursor:pointer; padding:9px 14px; font-size:12.5px; font-weight:600; color:var(--amber); }
+  details.skipped .tbl-wrap{ border:0; border-top:1px solid var(--line); border-radius:0 0 10px 10px; }
   .empty{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13.5px; }
   .warn{ background:var(--amber-soft); border:1px solid #ecd49a; color:#7a5510; border-radius:10px; padding:10px 14px; font-size:12.5px; margin-bottom:16px; line-height:1.5; }
   .spinner{ display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--teal); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:8px; }
@@ -120,7 +131,7 @@ const SUB_ORDER = [
 const SEVS = ['Critical','High','Medium','Low'];
 const COL_LABELS = {
   ticket_severity:'Severity', ticket_status:'Status', ticket_date_pending:'Date Pending',
-  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_id:'ID Ticket'
+  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_date_lastupdate:'Date Last Update', ticket_id:'ID Ticket'
 };
 
 let periods = [];          // dari /api/periods
@@ -128,6 +139,7 @@ let selected = new Set();  // "year-month"
 let selectAll = false;
 let data = null;           // response /api/ticketing
 let activeSub = 'emeterai';
+let showOut = false, outFilter = 'Semua';
 let reqSeq = 0, debounceT = null;
 
 const $ = (id) => document.getElementById(id);
@@ -199,12 +211,17 @@ async function load(){
   }
 }
 
+function escalatedWarning(){
+  if (!data.escalated || data.escalated.source !== 'fallback') return '';
+  return '<div class="warn"><b>Kolom escalated "' + esc(data.escalated.header) + '" tidak ditemukan di data.</b> Sementara memakai flag escalated yang disimpan saat upload. Cek nama kolomnya di <a href="/config">Setting → Konfigurasi Kolom</a>.</div>';
+}
+
 function missingColsWarning(){
   const miss = Object.keys(COL_LABELS).filter(k => !data.columns[k]);
   if (!miss.length) return '';
   return '<div class="warn"><b>Kolom belum terdeteksi:</b> ' + miss.map(k => esc(COL_LABELS[k])).join(', ') +
     '. Hitungan yang bergantung pada kolom itu akan kosong/tidak akurat. Isi nama header yang benar di ' +
-    '<a href="/config">Konfigurasi Kolom</a> (grup "Ticketing"), lalu muat ulang periode.</div>';
+    '<a href="/config">Setting → Konfigurasi Kolom</a> (grup "Ticketing"), lalu muat ulang periode.</div>';
 }
 
 function render(){
@@ -223,10 +240,10 @@ function render(){
   const picker = '<select id="sub-select" aria-label="Detail sub category">' +
     SUB_ORDER.map(s => '<option value="' + s.key + '"' + (s.key === activeSub ? ' selected' : '') + '>' + s.label + '</option>').join('') + '</select>';
 
-  $('out').innerHTML = missingColsWarning() + totalsHtml +
+  $('out').innerHTML = escalatedWarning() + missingColsWarning() + totalsHtml +
     '<div class="card"><div class="detail-head"><h2>Detail per Sub Category</h2>' + picker + '</div>' +
     '<div class="card-body" id="detail"></div></div>';
-  $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; renderDetail(); });
+  $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; showOut = false; outFilter = 'Semua'; renderDetail(); });
   renderDetail();
 }
 
@@ -252,11 +269,12 @@ function renderDetail(){
 
   // 9. outstanding vs resolved/closed
   h += '<div class="sec-title">Status Tiket</div><div class="grid4">' +
-    '<div class="mini"><div class="m-label">Outstanding</div><div class="m-val" style="color:var(--amber)">' + nf(s.outstanding) + '</div></div>' +
+    '<button type="button" class="mini clickable' + (showOut ? ' open' : '') + '" id="card-out" aria-expanded="' + showOut + '"><div class="m-label">Outstanding</div><div class="m-val" style="color:var(--amber)">' + nf(s.outstanding) + '</div><div class="m-hint">' + (showOut ? 'Klik untuk tutup' : 'Klik untuk lihat tiket') + '</div></button>' +
     '<div class="mini"><div class="m-label">Resolved</div><div class="m-val">' + nf(s.resolved) + '</div></div>' +
     '<div class="mini"><div class="m-label">Closed</div><div class="m-val">' + nf(s.closed) + '</div></div>' +
     '<div class="mini"><div class="m-label">Resolved + Closed</div><div class="m-val" style="color:var(--green)">' + nf(s.done) + '</div></div>' +
     '</div>';
+  if (showOut) h += outstandingPanel(s);
 
   // 10-12. SLA resolved+closed
   const st = s.sla.total;
@@ -268,8 +286,13 @@ function renderDetail(){
     '</tbody></table></div></div>' +
     '<div><div class="mini"><div class="m-label">Total SLA ' + esc(s.label) + ' (all severity)</div><div class="pct-big" style="margin:6px 0 12px">' + pctTxt(st.pct) + '</div>' +
     slaBar(st.onTarget, st.breach) + '</div></div></div>';
-  if (s.sla.skipped) h += '<div class="hint">' + nf(s.sla.skipped) + ' tiket resolved/closed tidak dihitung SLA (tanggal tidak lengkap atau severity tidak dikenali).</div>';
-  h += '<div class="hint">Durasi = date open → date resolved; kalau date pending terisi, date open → date pending.</div>';
+  if (s.sla.fallbackLastUpdate) h += '<div class="hint">' + nf(s.sla.fallbackLastUpdate) + ' tiket tanpa date resolved dihitung sampai date last update.</div>';
+  if (s.skippedTickets.length) {
+    h += '<details class="skipped"><summary>' + nf(s.skippedTickets.length) + ' tiket resolved/closed tidak bisa dihitung SLA — klik untuk lihat alasannya</summary><div class="tbl-wrap"><table><thead><tr><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th>Alasan</th></tr></thead><tbody>' +
+      s.skippedTickets.map(r => '<tr><td>' + esc(r.id) + '</td><td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td>' + esc(r.reason) + '</td></tr>').join('') +
+      '</tbody></table></div></details>';
+  }
+  h += '<div class="hint">Durasi = date open → date resolved (kalau kosong: date closed, lalu date last update); kalau date pending terisi, date open → date pending.</div>';
 
   // 13. outstanding SLA
   const ot = s.outstandingSla.total;
@@ -295,6 +318,27 @@ function renderDetail(){
     }).join('') + '</tbody></table></div>';
 
   $('detail').innerHTML = h;
+  const co = $('card-out');
+  if (co) co.addEventListener('click', () => { showOut = !showOut; outFilter = 'Semua'; renderDetail(); });
+  document.querySelectorAll('#detail .ofilters .chip').forEach(b => b.addEventListener('click', () => { outFilter = b.dataset.f; renderDetail(); }));
+}
+
+function outstandingPanel(s){
+  const groups = ['Open','On Progress','Pending','Reopen'];
+  if (s.outstandingByStatus.Lainnya) groups.push('Lainnya');
+  const list = s.outstandingTickets.filter(r => outFilter === 'Semua' || r.statusGroup === outFilter);
+  let h = '<div class="sec-title">Tiket Outstanding ' + esc(s.label) + '</div>';
+  if (!s.outstanding) return h + '<div class="hint">Tidak ada tiket outstanding di periode ini.</div>';
+  h += '<div class="ofilters"><button type="button" class="chip' + (outFilter === 'Semua' ? ' on' : '') + '" data-f="Semua">Semua<span class="cnt">' + nf(s.outstanding) + '</span></button>' +
+    groups.map(g => '<button type="button" class="chip' + (outFilter === g ? ' on' : '') + '" data-f="' + g + '">' + g + '<span class="cnt">' + nf(s.outstandingByStatus[g]) + '</span></button>').join('') + '</div>';
+  if (!list.length) return h + '<div class="hint">Tidak ada tiket dengan status ini.</div>';
+  h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th class="num">Umur</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
+    list.map((r, i) => {
+      const b = r.withinTarget === null ? '<span class="badge b-na">—</span>' : (r.withinTarget ? '<span class="badge b-ok">On Track</span>' : '<span class="badge b-bad">Breach</span>');
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + esc(r.status || '—') + '</td><td class="num">' + dur(r.hours) + (r.pending ? ' <span class="badge b-na" title="Dihitung sampai date pending">pending</span>' : '') + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
+    }).join('') + '</tbody></table></div>' +
+    '<div class="hint">Urut dari yang paling lama. Umur = date open → sekarang (atau → date pending kalau terisi).</div>';
+  return h;
 }
 
 document.getElementById('btn-logout').addEventListener('click', async () => {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Konfigurasi Kolom — Intan</title>
+<title>Setting — Konfigurasi Kolom — Intan</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
   :root{ --ink:#16232f; --slate-soft:#6b7a8f; --line:#e2e7ec; --teal:#0f7a6b; --red:#c0392b; --card:#fff; --paper:#f3f5f7; }
@@ -64,10 +64,10 @@
 </style>
 <link rel="stylesheet" href="/shell.css">
 </head>
-<body data-section="monthly">
+<body data-section="setting">
 <script src="/shell.js"></script>
 <header>
-  <h1>Konfigurasi Kolom</h1>
+  <h1>Setting</h1>
   <div class="header-account">
     <span id="whoami"></span>
     <div class="bot-helper">
@@ -81,9 +81,6 @@
   </div>
 </header>
 <div class="app-tabs">
-  <a href="/">Data Tersimpan</a>
-  <a href="/database">Kelola Database</a>
-  <a href="/users">Kelola User</a>
   <a href="/config" class="active">Konfigurasi Kolom</a>
 </div>
 <div class="wrap">
@@ -117,6 +114,8 @@ const FIELD_DEFAULTS = {
   voice_event: 'event',
   voice_talktime: 'talktime',
   voice_datetime: 'datetime',
+  ticketing_escalated: 'is_escalated',
+  ticket_date_lastupdate: '',
   ticket_severity: '',
   ticket_status: '',
   ticket_date_pending: '',
@@ -163,6 +162,8 @@ const FIELD_LABELS = {
   voice_event: 'Event — dipakai deteksi ABANDON',
   voice_talktime: 'Talk Time (durasi panggilan) — dasar AHT',
   voice_datetime: 'Tanggal/Waktu Panggilan',
+  ticketing_escalated: 'Kolom Escalated (tiket dihitung kalau isinya "escalated")',
+  ticket_date_lastupdate: 'Date Last Update — dipakai sebagai date resolved kalau Date Resolved kosong',
   ticket_severity: 'Severity (Critical/High/Medium/Low) — kosongkan = auto-detect',
   ticket_status: 'Status Tiket (Resolved/Closed/dll) — kosongkan = auto-detect',
   ticket_date_pending: 'Date Pending — kalau terisi, SLA dihitung sampai tanggal ini',
@@ -187,7 +188,7 @@ const FIELD_LABELS = {
   daily_detail_channel: 'Channel (Email/Whatsapp)'
 };
 const GROUPS = [
-  { title: 'Ticketing (halaman Ticketing — tiket escalated)', keys: ['ticket_severity','ticket_status','ticket_date_pending','ticket_date_resolved','ticket_date_closed','ticket_subject'] },
+  { title: 'Ticketing (halaman Ticketing — tiket escalated)', keys: ['ticketing_escalated','ticket_severity','ticket_status','ticket_date_pending','ticket_date_resolved','ticket_date_closed','ticket_date_lastupdate','ticket_subject'] },
   { title: 'File Ticket', keys: ['ticket_id','ticket_channel_name','ticket_subCategory','ticket_mainCategory','ticket_is_escalated','ticket_source_name','ticket_date_start','ticket_date_open','ticket_date_end','ticket_detailSubCategory','ticket_customer_hp','ticket_customer_email','ticket_customer_category','ticket_company'] },
   { title: 'File Detail Interaction (non-voice)', keys: ['detail_id_interaction','detail_session_id','detail_channel_name','detail_action_type','detail_date_received'] },
   { title: 'File Detail Interaction Voice', keys: ['voice_event','voice_talktime','voice_datetime'] },

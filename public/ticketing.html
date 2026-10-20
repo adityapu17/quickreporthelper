@@ -98,6 +98,15 @@
   .spinner{ display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--teal); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:8px; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
+  .cat-list{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; }
+  .cat-item{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#fff; border:0; border-bottom:1px solid var(--line); padding:11px 16px; cursor:pointer; font-family:inherit; font-size:13px; color:inherit; }
+  .cat-item:last-child{ border-bottom:0; }
+  .cat-item:hover{ background:var(--paper); }
+  .cat-item.on{ background:var(--teal-soft); box-shadow:inset 3px 0 0 var(--teal); }
+  .cat-rank{ width:22px; font-weight:700; color:var(--slate-soft); }
+  .cat-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cat-count{ font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .cat-detail{ padding:12px 16px 16px 50px; background:#fbfcfd; border-bottom:1px solid var(--line); }
   .tabs{ display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--line); }
   .tab{ background:none; border:0; border-bottom:2px solid transparent; padding:10px 18px; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--slate-soft); cursor:pointer; margin-bottom:-1px; }
   .tab:hover{ color:var(--ink); }
@@ -179,7 +188,7 @@ const SUB_ORDER = [
 const SEVS = ['Critical','High','Medium','Low'];
 const COL_LABELS = {
   ticket_severity:'Severity', ticket_status:'Status', ticket_date_pending:'Date Pending',
-  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_date_lastupdate:'Date Last Update', ticket_unit:'Unit / Posisi (untuk pengecualian Supervisor)', ticket_id:'ID Ticket'
+  ticket_date_resolved:'Date Resolved', ticket_date_closed:'Date Closed', ticket_date_lastupdate:'Date Last Update', ticket_unit:'Unit / Posisi (untuk pengecualian Supervisor)', ticket_company:'Nama Perusahaan (ticket_company_name)', ticket_id:'ID Ticket'
 };
 
 let periods = [];          // dari /api/periods
@@ -187,7 +196,7 @@ let selected = new Set();  // "year-month"
 let selectAll = false;
 let data = null;           // response /api/ticketing
 let activeSub = 'emeterai';
-let showOut = false, outFilter = 'Semua', skipOpen = false;
+let showOut = false, outFilter = 'Semua', skipOpen = false, catOpen = null;
 let reqSeq = 0, debounceT = null;
 
 const $ = (id) => document.getElementById(id);
@@ -296,7 +305,7 @@ function render(){
   $('out').innerHTML = escalatedWarning() + missingColsWarning() + totalsHtml + exNote +
     '<div class="card"><div class="detail-head"><h2>Detail per Sub Category</h2>' + picker + '</div>' +
     '<div class="card-body" id="detail"></div></div>';
-  $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; showOut = false; outFilter = 'Semua'; renderDetail(); });
+  $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; catOpen = null; showOut = false; outFilter = 'Semua'; renderDetail(); });
   renderDetail();
 }
 
@@ -381,8 +390,8 @@ function renderDetail(){
   if (unc > 0) h += '<div class="hint">' + nf(unc) + ' tiket outstanding tidak masuk hitungan (tanggal open kosong atau severity tidak dikenali).</div>';
 
   // 14. top 10
-  h += '<div class="sec-title">Top 10 Tiket ' + esc(s.label) + ' <span style="text-transform:none;letter-spacing:0;font-weight:400">(durasi terlama)</span></div>';
-  if (!s.top10.length) h += '<div class="hint">Tidak ada tiket dengan durasi yang bisa dihitung.</div>';
+  h += '<div class="sec-title">Longest Ticket by Resolve Time <span style="text-transform:none;letter-spacing:0;font-weight:400">(10 tiket resolved/closed · ' + esc(s.label) + ')</span></div>';
+  if (!s.top10.length) h += '<div class="hint">Tidak ada tiket resolved/closed dengan durasi yang bisa dihitung.</div>';
   else h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ID Tiket</th><th>Subject</th><th>Severity</th><th>Status</th><th class="num">Durasi</th><th class="num">Target</th><th>SLA</th></tr></thead><tbody>' +
     s.top10.map((r, i) => {
       const stl = r.state === 'outstanding' ? 'Outstanding' : (r.state === 'closed' ? 'Closed' : 'Resolved');
@@ -391,7 +400,23 @@ function renderDetail(){
       return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.id) + '</td><td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.subject) + '">' + esc(r.subject) + '</td><td>' + esc(r.severity) + '</td><td>' + stl + '</td><td class="num">' + dur(r.hours) + '</td><td class="num">' + (r.target ? r.target + ' jam' : '—') + '</td><td>' + b + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 
+  // 15. top 10 kategori terbanyak (klik untuk lihat perusahaan)
+  h += '<div class="sec-title">Top 10 Kategori Tiket Terbanyak <span style="text-transform:none;letter-spacing:0;font-weight:400">(' + esc(s.label) + ' · klik kategori untuk lihat perusahaan)</span></div>';
+  if (!s.topCategories.length) h += '<div class="hint">Belum ada tiket di sub category ini.</div>';
+  else h += '<div class="cat-list">' + s.topCategories.map((c, i) => {
+    const share = s.total ? Math.round(c.count / s.total * 1000) / 10 : 0;
+    const open = catOpen === i;
+    let item = '<button type="button" class="cat-item' + (open ? ' on' : '') + '" data-c="' + i + '" aria-expanded="' + open + '"><span class="cat-rank">' + (i + 1) + '</span><span class="cat-name" title="' + esc(c.name) + '">' + esc(c.name) + '</span><span class="cat-count">' + nf(c.count) + ' <span class="muted">(' + String(share).replace('.', ',') + '%)</span></span></button>';
+    if (open) {
+      const rest = c.otherCompanies.distinct ? '<tr><td colspan="3" class="muted">+ ' + nf(c.otherCompanies.distinct) + ' perusahaan lain (' + nf(c.otherCompanies.count) + ' tiket)</td></tr>' : '';
+      item += '<div class="cat-detail"><div class="muted" style="margin-bottom:8px">Perusahaan dengan tiket terbanyak untuk kategori ini:</div><div class="tbl-wrap"><table><thead><tr><th>#</th><th>Perusahaan (ticket_company_name)</th><th class="num">Jumlah Tiket</th></tr></thead><tbody>' +
+        c.companies.map((x, j) => '<tr><td>' + (j + 1) + '</td><td>' + esc(x.name) + '</td><td class="num">' + nf(x.count) + '</td></tr>').join('') + rest + '</tbody></table></div></div>';
+    }
+    return item;
+  }).join('') + '</div>';
+
   $('detail').innerHTML = h;
+  document.querySelectorAll('#detail .cat-item').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.c; catOpen = catOpen === i ? null : i; renderDetail(); }));
   const sk = $('skipped-box');
   if (sk) {
     sk.addEventListener('toggle', () => { skipOpen = sk.open; });

@@ -27,6 +27,7 @@ const FIELD_CANDIDATES = {
   ticket_date_closed: ['dateclosed', 'dateclose', 'closeddate', 'tglclosed'],
   ticket_date_lastupdate: ['datelastupdate', 'lastupdate', 'lastupdated', 'dateupdate', 'dateupdated', 'updatedat', 'tglupdate'],
   ticket_unit:        ['unit', 'posisi', 'position', 'currentunit', 'currentposition', 'unitposisi', 'posisiunit', 'posisitiket', 'assignedunit', 'unitkerja', 'unitname'],
+  ticket_company:     ['ticketcompanyname', 'companyname', 'company', 'namaperusahaan', 'perusahaan', 'customercompany'],
   ticket_subject:     ['subject', 'ticketsubject', 'title', 'judul', 'summary', 'description']
 };
 
@@ -184,6 +185,8 @@ export async function onRequestGet(context) {
         subsOut[s.key].outstandingSla.bySeverity[sv] = { target: TARGET_HOURS[sv], count: 0, onTrack: 0, breach: 0 };
       });
     });
+    const catMaps = {};
+    SUBS.forEach(s => { catMaps[s.key] = new Map(); });
     let totalEscalated = 0;
     const rowsBySub = {};
     SUBS.forEach(s => { rowsBySub[s.key] = []; });
@@ -196,6 +199,19 @@ export async function onRequestGet(context) {
       if (!sk) return;
       const out = subsOut[sk];
       out.total++;
+
+      // kategori (detail sub category) x perusahaan, untuk "Top 10 kategori terbanyak"
+      {
+        const cat = String(p.t.detail_sub_category || '').trim() || '(Tanpa kategori)';
+        const comp = String(rawOf(p, 'ticket_company') || '').trim() || '(Tanpa nama perusahaan)';
+        const cm = catMaps[sk];
+        const ck = cat.toLowerCase();
+        if (!cm.has(ck)) cm.set(ck, { name: cat, count: 0, companies: new Map() });
+        const ce = cm.get(ck); ce.count++;
+        const pk = comp.toLowerCase();
+        if (!ce.companies.has(pk)) ce.companies.set(pk, { name: comp, count: 0 });
+        ce.companies.get(pk).count++;
+      }
 
       const sev = normSeverity(rawOf(p, 'ticket_severity'));
       out.severity[sev || 'Lainnya']++;
@@ -301,9 +317,18 @@ export async function onRequestGet(context) {
       o.outstandingTickets.sort((a, b) => (b.hours === null) - (a.hours === null) || b.hours - a.hours);
       o.sla.fallbackLastUpdate = o.sla_fallbackLastUpdate; delete o.sla_fallbackLastUpdate;
       o.top10 = rowsBySub[s.key]
-        .filter(r => r.hours !== null)
+        .filter(r => r.hours !== null && r.state !== 'outstanding')
         .sort((a, b) => b.hours - a.hours)
         .slice(0, 10);
+      o.topCategories = Array.from(catMaps[s.key].values())
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+        .slice(0, 10)
+        .map(c => {
+          const comps = Array.from(c.companies.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+          const top = comps.slice(0, 10);
+          const rest = comps.slice(10);
+          return { name: c.name, count: c.count, companies: top, otherCompanies: { distinct: rest.length, count: rest.reduce((n, x) => n + x.count, 0) } };
+        });
     });
 
     return Response.json({

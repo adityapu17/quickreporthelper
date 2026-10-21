@@ -232,4 +232,4 @@
 
 // Palet warna channel (dipakai semua diagram): Voice biru, Email orange,
 // WhatsApp Business hijau, WhatsApp Group (Manual) abu-abu.
-window.CHANNEL_PALETTE = { voice: '#3568c9', email: '#e67e22', whatsapp: '#2f9e5b', manual: '#7f8a9a' };
+window.CHANNEL_PALETTE = { voice: '#3568c9', email: '#d4680f', whatsapp: '#43b86e', manual: '#7f8a9a' };

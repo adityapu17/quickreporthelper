@@ -1,6 +1,7 @@
 // GET /api/summary/insight?year=2026|all&month=all|0..11&produk=all|emeterai|perisai|shield
 // Agregasi dari tabel `tickets` (Report Ticket yang tersimpan di DB):
 //   kategori = detail_sub_category, jenis = main_category (Informasi/Keluhan/Permintaan),
+//   customer category = customer_category (kolom ticket_customer_category),
 //   produk = sub_category_raw, company = company, interaksi = jumlah baris tiket.
 // Hasil berupa pohon siap tampil (maks 10 per level, sisanya diringkas di `more`).
 
@@ -63,21 +64,22 @@ export async function onRequestGet(context) {
       where.push("replace(replace(replace(lower(COALESCE(t.sub_category_raw,'')),'-',''),' ',''),'_','') LIKE ?");
       binds.push('%' + PRODUK_MATCH[produk] + '%');
     }
-    const sql = 'SELECT t.sub_category_raw AS sub, t.main_category AS type, t.detail_sub_category AS cat, t.company AS company, COUNT(*) AS n ' +
+    const sql = 'SELECT t.sub_category_raw AS sub, t.main_category AS type, t.detail_sub_category AS cat, t.company AS company, t.customer_category AS custcat, COUNT(*) AS n ' +
                 'FROM tickets t JOIN periods p ON p.id = t.period_id' + (where.length ? ' WHERE ' + where.join(' AND ') : '') +
-                ' GROUP BY t.sub_category_raw, t.main_category, t.detail_sub_category, t.company';
+                ' GROUP BY t.sub_category_raw, t.main_category, t.detail_sub_category, t.company, t.customer_category';
     const { results } = await env.DB.prepare(sql).bind(...binds).all();
 
     const rows = (results || []).map(r => ({
       product: productLabel(r.sub), type: typeLabel(r.type),
-      cat: clean(r.cat) || '(Tanpa kategori)', company: clean(r.company) || '(Tanpa company)', n: Number(r.n) || 0
+      cat: clean(r.cat) || '(Tanpa kategori)', company: clean(r.company) || '(Tanpa company)',
+      custcat: clean(r.custcat) || '(Tanpa customer category)', n: Number(r.n) || 0
     }));
     const total = rows.reduce((n, r) => n + r.n, 0);
 
     let availableMonths = [];
     if (year !== 'all') {
       const mr = await env.DB.prepare('SELECT DISTINCT month FROM periods WHERE year = ? ORDER BY month').bind(Number(year)).all();
-      availableMonths = (mr.results || []).map(x => x.month);
+      availableMonths = (mr.results || []).map(x => Number(x.month));
     }
 
     return Response.json({
@@ -86,6 +88,7 @@ export async function onRequestGet(context) {
         cat: build(rows, ['cat', 'company'], 10),
         comp: build(rows, ['company', 'cat'], 10),
         type: build(rows, ['type', 'cat', 'company'], 10),
+        custCat: build(rows, ['custcat', 'company', 'cat'], 10),
         treeCat: build(rows, ['product', 'cat', 'company'], 8),
         treeComp: build(rows, ['product', 'company', 'cat'], 8)
       }

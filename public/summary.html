@@ -194,6 +194,7 @@
           <option value="comp">Top 10 Company → Kategori</option>
           <option value="type">Jenis (Informasi / Keluhan / Permintaan) → Kategori → Company</option>
           <option value="treeCat">Tree: Produk → Kategori → Company</option>
+          <option value="custCat">Top Customer Category → Company → Kategori</option>
           <option value="treeComp">Tree: Produk → Company → Kategori</option>
         </select></div>
       </div>
@@ -310,7 +311,7 @@ fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email)
 const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const CH_CLASS = { Email:'email', Voice:'voice', WhatsApp:'whatsapp', Manual:'manual' };
 const PR_CLASS = { Perisai:'perisai', 'E-Meterai':'emeterai' };
-const CH_PAL = window.CHANNEL_PALETTE || { voice:'#3568c9', email:'#e67e22', whatsapp:'#2f9e5b', manual:'#7f8a9a' };
+const CH_PAL = window.CHANNEL_PALETTE || { voice:'#3568c9', email:'#d4680f', whatsapp:'#43b86e', manual:'#7f8a9a' };
 const CHART_COLORS = { Email:CH_PAL.email, Voice:CH_PAL.voice, WhatsApp:CH_PAL.whatsapp, Manual:CH_PAL.manual };
 const PRODUK_COLORS = { Perisai:'#0f7a6b', 'E-Meterai':'#8b5fbf' };
 
@@ -574,6 +575,7 @@ function insEsc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => (
 function insNf(n){ return Number(n || 0).toLocaleString('id-ID'); }
 function scheduleInsight(){ clearTimeout(insTimer); insTimer = setTimeout(loadInsight, 150); }
 async function loadInsight(retry){
+  retry = retry === true;
   const year = document.getElementById('dashYear').value;
   const sel = document.getElementById('insMonth');
   const month = retry ? 'all' : sel.value;
@@ -637,8 +639,9 @@ document.getElementById('insList').addEventListener('click', (e) => {
   renderInsight();
 });
 document.getElementById('insView').addEventListener('change', () => { insExpanded = new Set(); renderInsight(); });
-document.getElementById('insMonth').addEventListener('change', loadInsight);
-document.getElementById('insProduk').addEventListener('change', loadInsight);
+// Jangan pasang loadInsight langsung: objek event akan masuk sebagai argumen `retry`.
+document.getElementById('insMonth').addEventListener('change', () => loadInsight(false));
+document.getElementById('insProduk').addEventListener('change', () => loadInsight(false));
 
 // ---------- dashboard ----------
 function renderDashboard(){

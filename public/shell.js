@@ -114,10 +114,10 @@
       userMenu.appendChild(initialBtn);
       userMenu.appendChild(dropdown);
 
-      // Insert before bot-helper (or at end of header-account)
+      // Urutan header di semua halaman: robot dulu, baru profil (paling kanan)
       var botHelper = headerAccount.querySelector('.bot-helper');
       if (botHelper) {
-        headerAccount.insertBefore(userMenu, botHelper);
+        headerAccount.insertBefore(userMenu, botHelper.nextSibling);
       } else {
         headerAccount.appendChild(userMenu);
       }
@@ -167,7 +167,7 @@
 
   var RO_CSS = [
     // Monthly: simpan ke DB
-    '#btn-save-curr,#btn-save-prev',
+    '#upload-confirm',
     // Kelola Database / Kelola User: hapus & tambah
     '.del-btn,#add-user-card',
     // Konfigurasi Kolom
@@ -229,3 +229,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
+// Palet warna channel (dipakai semua diagram): Voice biru, Email orange,
+// WhatsApp Business hijau, WhatsApp Group (Manual) abu-abu.
+window.CHANNEL_PALETTE = { voice: '#3568c9', email: '#e67e22', whatsapp: '#2f9e5b', manual: '#7f8a9a' };

@@ -114,6 +114,28 @@
     padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:50; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); animation:toastIn .2s ease; }
   .toast.err{ background:var(--red); }
+  /* ---- Analisa Kategori & Company ---- */
+  .ins-hint{ font-size:12px; color:var(--slate-soft); margin:0 0 12px; line-height:1.5; }
+  .ins-list{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; }
+  .ins-row{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:0; border-bottom:1px solid var(--line); padding:9px 14px; font-family:inherit; font-size:13px; color:var(--ink); }
+  button.ins-row{ cursor:pointer; }
+  button.ins-row:hover{ background:var(--paper); }
+  .ins-row.open{ background:var(--teal-soft); }
+  .ins-row:last-child{ border-bottom:0; }
+  .ins-caret{ width:12px; color:var(--slate-soft); font-size:11px; flex:none; }
+  .ins-rank{ width:20px; font-weight:700; color:var(--slate-soft); flex:none; font-size:12px; }
+  .ins-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ins-bar{ width:90px; height:6px; border-radius:3px; background:#eef1f4; flex:none; overflow:hidden; }
+  .ins-bar > i{ display:block; height:100%; background:var(--teal); }
+  .ins-count{ width:64px; text-align:right; font-weight:700; font-variant-numeric:tabular-nums; flex:none; }
+  .ins-pct{ width:48px; text-align:right; font-size:11.5px; color:var(--slate-soft); font-variant-numeric:tabular-nums; flex:none; }
+  .ins-children{ background:#fbfcfd; border-bottom:1px solid var(--line); }
+  .ins-children > .ins-row, .ins-children > .ins-children{ background:transparent; }
+  .ins-lv1{ padding-left:34px; } .ins-lv2{ padding-left:56px; font-size:12.5px; }
+  .ins-lv1 .ins-bar > i{ background:#5aa89d; } .ins-lv2 .ins-bar > i{ background:#9ccbc4; }
+  .ins-more{ color:var(--slate-soft); font-size:12px; font-style:italic; cursor:default; }
+  .ins-empty{ padding:28px 16px; text-align:center; color:var(--slate-soft); font-size:13px; }
+  @media (max-width:760px){ .ins-bar{ display:none; } }
 </style>
 </head>
 <body data-section="summary">
@@ -162,6 +184,21 @@
         <div><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">Tren Total Interaksi per Bulan</p><div class="chart-wrap"><canvas id="chartTrendProduk"></canvas></div></div>
         <div><p style="font-size:12.5px;font-weight:700;color:var(--slate-soft);margin:0 0 4px;">Breakdown per Produk</p><div class="chart-wrap"><canvas id="chartProduk"></canvas></div></div>
       </div>
+    </div></div>
+      <div class="card" id="insightCard"><h2>Analisa Kategori &amp; Company</h2><div class="body">
+      <div class="filters" style="margin-bottom:12px;">
+        <div class="field"><label>Bulan</label><select id="insMonth"><option value="all">Semua bulan</option></select></div>
+        <div class="field"><label>Produk</label><select id="insProduk"><option value="all">Semua</option><option value="emeterai">E-Meterai</option><option value="perisai">Perisai</option><option value="shield">Peruri Shield</option></select></div>
+        <div class="field"><label>Tampilan</label><select id="insView">
+          <option value="cat">Top 10 Kategori → Company</option>
+          <option value="comp">Top 10 Company → Kategori</option>
+          <option value="type">Jenis (Informasi / Keluhan / Permintaan) → Kategori → Company</option>
+          <option value="treeCat">Tree: Produk → Kategori → Company</option>
+          <option value="treeComp">Tree: Produk → Company → Kategori</option>
+        </select></div>
+      </div>
+      <p class="ins-hint" id="insInfo"></p>
+      <div id="insList"></div>
     </div></div>
   </section>
 
@@ -273,7 +310,8 @@ fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => { if (d && d.email)
 const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const CH_CLASS = { Email:'email', Voice:'voice', WhatsApp:'whatsapp', Manual:'manual' };
 const PR_CLASS = { Perisai:'perisai', 'E-Meterai':'emeterai' };
-const CHART_COLORS = { Email:'#0f7a6b', Voice:'#c98a1d', WhatsApp:'#3568c9', Manual:'#7a8698' };
+const CH_PAL = window.CHANNEL_PALETTE || { voice:'#3568c9', email:'#e67e22', whatsapp:'#2f9e5b', manual:'#7f8a9a' };
+const CHART_COLORS = { Email:CH_PAL.email, Voice:CH_PAL.voice, WhatsApp:CH_PAL.whatsapp, Manual:CH_PAL.manual };
 const PRODUK_COLORS = { Perisai:'#0f7a6b', 'E-Meterai':'#8b5fbf' };
 
 let channelRecords = [];
@@ -529,6 +567,79 @@ function renderTableProduk(){
     </tr>`).join('');
 }
 
+// ---------- Analisa Kategori & Company (data dari DB: tabel tickets) ----------
+const INS_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+let insData = null, insSeq = 0, insTimer = null, insExpanded = new Set();
+function insEsc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function insNf(n){ return Number(n || 0).toLocaleString('id-ID'); }
+function scheduleInsight(){ clearTimeout(insTimer); insTimer = setTimeout(loadInsight, 150); }
+async function loadInsight(retry){
+  const year = document.getElementById('dashYear').value;
+  const sel = document.getElementById('insMonth');
+  const month = retry ? 'all' : sel.value;
+  const produk = document.getElementById('insProduk').value;
+  const seq = ++insSeq;
+  document.getElementById('insList').innerHTML = '<div class="ins-empty">Memuat...</div>';
+  try {
+    const res = await fetch('/api/summary/insight?year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month) + '&produk=' + encodeURIComponent(produk));
+    const j = await res.json();
+    if (seq !== insSeq) return;
+    if (!res.ok) throw new Error(j.error || ('status ' + res.status));
+    // isi dropdown bulan sesuai periode yang ada di DB untuk tahun terpilih
+    const avail = j.availableMonths || [];
+    if (month !== 'all' && year !== 'all' && !avail.includes(Number(month))) { sel.value = 'all'; return loadInsight(true); }
+    const cur = retry ? 'all' : sel.value;
+    sel.innerHTML = '<option value="all">Semua bulan</option>' + (year === 'all' ? '' : avail.map(m => '<option value="' + m + '">' + INS_MONTHS[m] + '</option>').join(''));
+    sel.value = cur;
+    sel.disabled = year === 'all';
+    insData = j; insExpanded = new Set();
+    renderInsight();
+  } catch (e) {
+    if (seq !== insSeq) return;
+    document.getElementById('insList').innerHTML = '<div class="ins-empty">Gagal memuat: ' + insEsc(e.message) + '</div>';
+  }
+}
+function insRows(nodes, more, parentTotal, level, path){
+  let h = '';
+  nodes.forEach((n, i) => {
+    const key = path + '/' + i;
+    const has = n.children && n.children.nodes && n.children.nodes.length;
+    const open = insExpanded.has(key);
+    const pct = parentTotal ? Math.round(n.count / parentTotal * 1000) / 10 : 0;
+    const cells = (has ? '<span class="ins-caret">' + (open ? '▾' : '▸') + '</span>' : '<span class="ins-caret"></span>') +
+      (level === 0 ? '<span class="ins-rank">' + (i + 1) + '</span>' : '') +
+      '<span class="ins-name" title="' + insEsc(n.name) + '">' + insEsc(n.name) + '</span>' +
+      '<span class="ins-bar"><i style="width:' + Math.min(100, pct) + '%"></i></span>' +
+      '<span class="ins-count">' + insNf(n.count) + '</span><span class="ins-pct">' + String(pct).replace('.', ',') + '%</span>';
+    h += has
+      ? '<button type="button" class="ins-row ins-lv' + level + (open ? ' open' : '') + '" data-k="' + key + '" aria-expanded="' + open + '">' + cells + '</button>'
+      : '<div class="ins-row ins-lv' + level + '">' + cells + '</div>';
+    if (has && open) h += '<div class="ins-children">' + insRows(n.children.nodes, n.children.more, n.count, level + 1, key) + '</div>';
+  });
+  if (more) h += '<div class="ins-row ins-more ins-lv' + level + '"><span class="ins-caret"></span>+ ' + insNf(more.distinct) + ' lainnya (' + insNf(more.count) + ' interaksi)</div>';
+  return h;
+}
+function renderInsight(){
+  if (!insData) return;
+  const year = document.getElementById('dashYear').value;
+  const month = document.getElementById('insMonth').value;
+  const prodSel = document.getElementById('insProduk');
+  document.getElementById('insInfo').textContent = 'Total ' + insNf(insData.total) + ' interaksi · ' + (year === 'all' ? 'Semua tahun' : 'Tahun ' + year) + ' · ' + (month === 'all' ? 'Semua bulan' : INS_MONTHS[Number(month)]) + ' · Produk: ' + prodSel.options[prodSel.selectedIndex].text + '. Klik baris untuk melihat rinciannya. Interaksi = jumlah baris Report Ticket yang tersimpan di database.';
+  const v = insData.views[document.getElementById('insView').value];
+  const box = document.getElementById('insList');
+  if (!insData.total || !v || !v.nodes.length) { box.innerHTML = '<div class="ins-empty">Tidak ada data tiket di database untuk filter ini.</div>'; return; }
+  box.innerHTML = '<div class="ins-list">' + insRows(v.nodes, v.more, insData.total, 0, 'r') + '</div>';
+}
+document.getElementById('insList').addEventListener('click', (e) => {
+  const b = e.target.closest('.ins-row[data-k]'); if (!b) return;
+  const k = b.dataset.k;
+  if (insExpanded.has(k)) insExpanded.delete(k); else insExpanded.add(k);
+  renderInsight();
+});
+document.getElementById('insView').addEventListener('change', () => { insExpanded = new Set(); renderInsight(); });
+document.getElementById('insMonth').addEventListener('change', loadInsight);
+document.getElementById('insProduk').addEventListener('change', loadInsight);
+
 // ---------- dashboard ----------
 function renderDashboard(){
   const year = document.getElementById('dashYear').value;
@@ -541,6 +652,7 @@ function renderDashboard(){
   safeRender(() => renderResponseChart(chRows), 'response');
   safeRender(() => renderTrendProdukChart(prRows), 'trendProduk');
   safeRender(() => renderProdukChart(prRows), 'produk');
+  scheduleInsight();
 }
 function safeRender(fn, label){ try { fn(); } catch (err) { console.error('Chart render error (' + label + '):', err); } }
 
@@ -617,9 +729,9 @@ function renderResponseChart(rows){
   const waData = periods.map(([k]) => avgFor(rtRows.filter(r => r.channel === 'WhatsApp'), k));
   const voiceData = periods.map(([k]) => avgFor(ahtRows, k));
   charts.response = new Chart(document.getElementById('chartResponse'), { type:'line', data:{ labels: periods.map(([k]) => periodLabelLinesFromKey(k)), datasets:[
-    { label:'Email (Response Time)', data: emailData, borderColor:'#0f7a6b', backgroundColor:'#0f7a6b', tension:0.3, borderWidth:2, pointRadius:3 },
-    { label:'WhatsApp (Response Time)', data: waData, borderColor:'#3568c9', backgroundColor:'#3568c9', tension:0.3, borderWidth:2, pointRadius:3 },
-    { label:'Voice (AHT)', data: voiceData, borderColor:'#c98a1d', backgroundColor:'#c98a1d', tension:0.3, borderWidth:2, pointRadius:3 },
+    { label:'Email (Response Time)', data: emailData, borderColor:CHART_COLORS.Email, backgroundColor:CHART_COLORS.Email, tension:0.3, borderWidth:2, pointRadius:3 },
+    { label:'WhatsApp (Response Time)', data: waData, borderColor:CHART_COLORS.WhatsApp, backgroundColor:CHART_COLORS.WhatsApp, tension:0.3, borderWidth:2, pointRadius:3 },
+    { label:'Voice (AHT)', data: voiceData, borderColor:CHART_COLORS.Voice, backgroundColor:CHART_COLORS.Voice, tension:0.3, borderWidth:2, pointRadius:3 },
   ]}, options: baseChartOptions({ legend:true, decimals:1 }) });
 }
 function renderTrendProdukChart(rows){

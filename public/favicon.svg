@@ -1,4 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M14 12 H50 V22 H36 V42 H50 V52 H14 V42 H28 V22 H14 Z"
-        fill="#ffffff" stroke="#0f7a6b" stroke-width="5" stroke-linejoin="round"/>
+  <!-- Background glow effect -->
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Rounded square background with white glow corners -->
+  <rect x="4" y="4" width="56" height="56" rx="12" ry="12" fill="none" stroke="#ffffff" stroke-width="3" filter="url(#glow)"/>
+  <!-- Capital letter I with serifs (head and feet) - light green -->
+  <path d="M22 14 H42 M22 50 H42 M32 14 V50" stroke="#4ade80" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

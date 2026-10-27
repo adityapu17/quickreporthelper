@@ -2,7 +2,7 @@
 // GET /api/ticketing/search?id=<tickets.id> -> detail satu tiket
 import { norm, parseTs, dateMode, resolveColumns } from '../../_lib/ticket-fields.js';
 
-const MAX_RESULTS = 50;
+const MAX_RESULTS = 500;
 const esc = (s) => s.replace(/[\\%_]/g, (c) => '\\' + c);
 const pathOf = (h) => '$."' + String(h).replace(/["\\]/g, '') + '"';
 const txt = (v) => (v === null || v === undefined) ? '' : String(v);
@@ -95,6 +95,7 @@ export async function onRequestGet(context) {
         status: txt(get(raw, 'ticket_status')),
         severity: txt(get(raw, 'ticket_severity')),
         subCategory: txt(r.sub_category_raw),
+        detailSubCategory: txt(get(raw, 'ticket_detail_subcategory')) || txt(r.detail_sub_category),
         period: r.period_label || '',
         openTs: parseTs(openV), openMode: dateMode(openV)
       };

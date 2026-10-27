@@ -122,6 +122,11 @@
   .search-box{ display:flex; gap:10px; align-items:center; }
   .search-box input{ flex:1; font-family:inherit; font-size:14px; padding:10px 14px; border:1px solid var(--line); border-radius:8px; }
   .search-box input:focus{ outline:2px solid var(--teal-soft); border-color:var(--teal); }
+  .s-filters{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:flex-end; margin:0 0 12px; }
+  .s-filters label{ display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--slate-soft); }
+  .s-filters select{ min-width:130px; max-width:260px; text-transform:none; letter-spacing:0; font-weight:400; }
+  .s-filters .s-reset{ font-family:inherit; font-size:12.5px; padding:7px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  .s-filters .s-reset:hover{ background:var(--paper); }
   .s-layout{ display:grid; grid-template-columns:minmax(300px,2fr) 3fr; gap:16px; align-items:start; }
   .s-list{ max-height:720px; overflow-y:auto; }
   .s-item{ display:block; width:100%; text-align:left; background:#fff; border:0; border-bottom:1px solid var(--line); padding:11px 16px; cursor:pointer; font-family:inherit; color:inherit; }
@@ -494,7 +499,10 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 }));
 
 // ---------- Search ----------
-let sTimer = null, sSeq = 0, sItems = [], sActive = null;
+let sTimer = null, sSeq = 0, sItems = [], sActive = null, sResp = null, sView = [];
+const sFilter = { year:'', month:'', detail:'' };
+const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function tsYM(r){ if (r.openTs === null || r.openTs === undefined) return null; const d = new Date(r.openTs); return r.openMode === 'plain' ? { y:d.getUTCFullYear(), m:d.getUTCMonth() } : { y:d.getFullYear(), m:d.getMonth() }; }
 const DATE_ROWS = [['open','Date Open'],['onProgress','On Progress'],['pending','Pending'],['resolved','Resolved'],['reopen','Reopen'],['lastUpdate','Last Update'],['closed','Closed']];
 
 $('s-input').addEventListener('input', () => { clearTimeout(sTimer); sTimer = setTimeout(doSearch, 300); });
@@ -510,7 +518,8 @@ async function doSearch(){
     const j = await res.json();
     if (seq !== sSeq) return;
     if (!res.ok) throw new Error(j.error || ('status ' + res.status));
-    sItems = j.items; sActive = null;
+    sItems = j.items; sActive = null; sResp = j;
+    sFilter.year = ''; sFilter.month = ''; sFilter.detail = '';
     renderSearch(j);
   } catch (e) {
     if (seq !== sSeq) return;
@@ -521,16 +530,47 @@ async function doSearch(){
 function renderSearch(j){
   const out = $('s-out');
   if (!j.items.length){ out.innerHTML = '<div class="card"><div class="empty">Tidak ada tiket yang cocok dengan "' + esc(j.q) + '".</div></div>'; return; }
-  const note = j.total > j.shown ? 'Menampilkan ' + nf(j.shown) + ' dari ' + nf(j.total) + ' tiket (terbaru dulu). Persempit kata kunci untuk hasil lebih spesifik.' : nf(j.total) + ' tiket ditemukan.';
-  const list = j.items.map((r, i) =>
-    '<button type="button" class="s-item" data-i="' + i + '"><div class="s-id">' + esc(r.id) + '</div><div class="s-sub" title="' + esc(r.subject) + '">' + esc(r.subject || '(tanpa subject)') + '</div>' +
-    '<div class="s-meta"><span>' + esc(r.status || '—') + '</span><span>' + esc(r.severity || '—') + '</span><span>' + esc(r.subCategory || '—') + '</span><span>' + fmtDt(r.openTs, r.openMode) + '</span></div></button>').join('');
-  out.innerHTML = '<div class="hint" style="margin:0 0 10px">' + note + '</div><div class="s-layout"><div class="card s-list" style="margin:0">' + list + '</div><div id="s-detail"><div class="card"><div class="empty">Klik salah satu tiket untuk melihat detailnya.</div></div></div></div>';
-  out.querySelectorAll('.s-item').forEach(b => b.addEventListener('click', () => openDetail(+b.dataset.i)));
+  const years = [...new Set(sItems.map(r => tsYM(r)).filter(Boolean).map(x => x.y))].sort((a, b) => b - a);
+  const details = [...new Set(sItems.map(r => r.detailSubCategory).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id'));
+  const hasNoDetail = sItems.some(r => !r.detailSubCategory);
+  const opt = (v, label, cur) => '<option value="' + esc(v) + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + esc(label) + '</option>';
+  const filters = '<div class="s-filters">' +
+    '<label>Tahun<select id="f-year">' + opt('', 'Semua tahun', sFilter.year) + years.map(y => opt(y, y, sFilter.year)).join('') + '</select></label>' +
+    '<label>Bulan<select id="f-month">' + opt('', 'Semua bulan', sFilter.month) + MONTHS_ID.map((m, i) => opt(i, m, sFilter.month)).join('') + '</select></label>' +
+    '<label>Detail Sub Category<select id="f-detail">' + opt('', 'Semua detail', sFilter.detail) + details.map(d => opt(d, d, sFilter.detail)).join('') + (hasNoDetail ? opt('__none__', '(Tanpa detail)', sFilter.detail) : '') + '</select></label>' +
+    '<button type="button" class="s-reset" id="f-reset">Reset filter</button></div>';
+  out.innerHTML = filters + '<div class="hint" id="s-note" style="margin:0 0 10px"></div><div class="s-layout"><div class="card s-list" id="s-list" style="margin:0"></div><div id="s-detail"><div class="card"><div class="empty">Klik salah satu tiket untuk melihat detailnya.</div></div></div></div>';
+  $('f-year').addEventListener('change', e => { sFilter.year = e.target.value; renderList(); });
+  $('f-month').addEventListener('change', e => { sFilter.month = e.target.value; renderList(); });
+  $('f-detail').addEventListener('change', e => { sFilter.detail = e.target.value; renderList(); });
+  $('f-reset').addEventListener('click', () => { sFilter.year = ''; sFilter.month = ''; sFilter.detail = ''; ['f-year','f-month','f-detail'].forEach(id => $(id).value = ''); renderList(); });
+  renderList();
+}
+
+function renderList(){
+  const j = sResp;
+  sView = sItems.filter(r => {
+    const ym = tsYM(r);
+    if (sFilter.year !== '' && (!ym || String(ym.y) !== sFilter.year)) return false;
+    if (sFilter.month !== '' && (!ym || String(ym.m) !== sFilter.month)) return false;
+    if (sFilter.detail === '__none__') return !r.detailSubCategory;
+    if (sFilter.detail !== '' && r.detailSubCategory !== sFilter.detail) return false;
+    return true;
+  });
+  const filtered = sView.length !== sItems.length;
+  let note = j.total > j.shown ? 'Menampilkan ' + nf(j.shown) + ' dari ' + nf(j.total) + ' tiket yang cocok (terbaru dulu) — filter hanya berlaku untuk yang tampil; persempit kata kunci untuk hasil lengkap.' : nf(j.total) + ' tiket ditemukan.';
+  if (filtered) note = nf(sView.length) + ' dari ' + nf(sItems.length) + ' tiket sesuai filter. ' + (j.total > j.shown ? 'Hasil pencarian dibatasi ' + nf(j.shown) + ' tiket terbaru.' : '');
+  $('s-note').textContent = note;
+  const box = $('s-list');
+  if (!sView.length){ box.innerHTML = '<div class="empty">Tidak ada tiket yang sesuai filter.</div>'; return; }
+  box.innerHTML = sView.map((r, i) =>
+    '<button type="button" class="s-item' + (r.rowId === sActive ? ' on' : '') + '" data-i="' + i + '"><div class="s-id">' + esc(r.id) + '</div><div class="s-sub" title="' + esc(r.subject) + '">' + esc(r.subject || '(tanpa subject)') + '</div>' +
+    '<div class="s-meta"><span>' + esc(r.status || '—') + '</span><span>' + esc(r.severity || '—') + '</span><span>' + esc(r.subCategory || '—') + (r.detailSubCategory ? ' › ' + esc(r.detailSubCategory) : '') + '</span><span>' + fmtDt(r.openTs, r.openMode) + '</span></div></button>').join('');
+  box.querySelectorAll('.s-item').forEach(b => b.addEventListener('click', () => openDetail(+b.dataset.i)));
 }
 
 async function openDetail(i){
-  const r = sItems[i]; if (!r) return;
+  const r = sView[i]; if (!r) return;
   sActive = r.rowId;
   document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
   const box = $('s-detail');

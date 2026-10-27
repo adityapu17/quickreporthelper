@@ -1,8 +1,9 @@
-// GET /api/ticketing/search?q=<teks>      -> daftar tiket (ticket id / subject / remarks mengandung teks)
+// GET /api/ticketing/search?q=<teks>[&year=2026][&month=0-11][&detail=<teks>|__none__] -> daftar tiket (ticket id / subject / remarks mengandung teks), bisa difilter
 // GET /api/ticketing/search?id=<tickets.id> -> detail satu tiket
 import { norm, parseTs, dateMode, resolveColumns } from '../../_lib/ticket-fields.js';
 
-const MAX_RESULTS = 500;
+const MAX_RESULTS = 300;   // item yang dikirim ke tampilan list (setelah filter)
+const SCAN_CAP = 5000;      // batas tiket yang dipindai per pencarian
 const esc = (s) => s.replace(/[\\%_]/g, (c) => '\\' + c);
 const pathOf = (h) => '$."' + String(h).replace(/["\\]/g, '') + '"';
 const txt = (v) => (v === null || v === undefined) ? '' : String(v);
@@ -79,15 +80,28 @@ export async function onRequestGet(context) {
     if (cols.ticket_remarks) { conds.push("lower(COALESCE(CAST(json_extract(t.raw_json, ?) AS TEXT), '')) LIKE ? ESCAPE '\\'"); binds.push(pathOf(cols.ticket_remarks), like); }
     const where = '(' + conds.join(' OR ') + ')';
 
-    const total = (await env.DB.prepare('SELECT COUNT(*) AS n FROM tickets t WHERE ' + where).bind(...binds).first()).n || 0;
+    const yearF = (url.searchParams.get('year') || '').trim();
+    const monthF = (url.searchParams.get('month') || '').trim();
+    const detailF = (url.searchParams.get('detail') || '').trim();
+
     const { results } = await env.DB.prepare(
       'SELECT t.id, t.period_id, t.sub_category_raw, t.detail_sub_category, t.date_open, t.raw_json, p.label AS period_label ' +
       'FROM tickets t LEFT JOIN periods p ON p.id = t.period_id WHERE ' + where +
-      ' ORDER BY t.date_open DESC, t.id DESC LIMIT ' + MAX_RESULTS).bind(...binds).all();
+      ' ORDER BY t.date_open DESC, t.id DESC LIMIT ' + (SCAN_CAP + 1)).bind(...binds).all();
+    const rows = results || [];
+    const capped = rows.length > SCAN_CAP;
+    if (capped) rows.length = SCAN_CAP;
 
-    const items = (results || []).map(r => {
+    const ym = (ts, mode) => {
+      if (ts === null || ts === undefined) return null;
+      const d = new Date(ts);
+      return mode === 'plain' ? { y: d.getUTCFullYear(), m: d.getUTCMonth() } : { y: d.getFullYear(), m: d.getMonth() };
+    };
+
+    const all = rows.map(r => {
       const raw = parseRaw(r);
       const openV = get(raw, 'ticket_date_open') ?? r.date_open;
+      const openTs = parseTs(openV), openMode = dateMode(openV);
       return {
         rowId: r.id,
         id: txt(get(raw, 'ticket_id')) || String(r.id),
@@ -97,10 +111,33 @@ export async function onRequestGet(context) {
         subCategory: txt(r.sub_category_raw),
         detailSubCategory: txt(get(raw, 'ticket_detail_subcategory')) || txt(r.detail_sub_category),
         period: r.period_label || '',
-        openTs: parseTs(openV), openMode: dateMode(openV)
+        openTs, openMode
       };
     });
-    return Response.json({ q, total, shown: items.length, items, columns: { id: cols.ticket_id, subject: cols.ticket_subject, remarks: cols.ticket_remarks } });
+
+    // opsi filter dihitung dari SEMUA tiket yang cocok kata kunci (bukan cuma yang tampil)
+    const years = new Set(), details = new Set();
+    let noDetail = false;
+    all.forEach(it => {
+      const x = ym(it.openTs, it.openMode); if (x) years.add(x.y);
+      if (it.detailSubCategory) details.add(it.detailSubCategory); else noDetail = true;
+    });
+
+    const filtered = all.filter(it => {
+      const x = ym(it.openTs, it.openMode);
+      if (yearF !== '' && (!x || String(x.y) !== yearF)) return false;
+      if (monthF !== '' && (!x || String(x.m) !== monthF)) return false;
+      if (detailF === '__none__') return !it.detailSubCategory;
+      if (detailF !== '' && it.detailSubCategory !== detailF) return false;
+      return true;
+    });
+    const items = filtered.slice(0, MAX_RESULTS);
+
+    return Response.json({
+      q, total: all.length, matched: filtered.length, shown: items.length, capped, scanCap: SCAN_CAP, items,
+      facets: { years: Array.from(years).sort((a, b) => b - a), details: Array.from(details).sort((a, b) => a.localeCompare(b, 'id')), noDetail },
+      columns: { id: cols.ticket_id, subject: cols.ticket_subject, remarks: cols.ticket_remarks }
+    });
   } catch (err) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });
   }

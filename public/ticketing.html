@@ -499,10 +499,9 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 }));
 
 // ---------- Search ----------
-let sTimer = null, sSeq = 0, sItems = [], sActive = null, sResp = null, sView = [];
+let sTimer = null, sSeq = 0, sItems = [], sActive = null, sResp = null, sView = [], sFacets = null, sQ = '';
 const sFilter = { year:'', month:'', detail:'' };
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-function tsYM(r){ if (r.openTs === null || r.openTs === undefined) return null; const d = new Date(r.openTs); return r.openMode === 'plain' ? { y:d.getUTCFullYear(), m:d.getUTCMonth() } : { y:d.getFullYear(), m:d.getMonth() }; }
 const DATE_ROWS = [['open','Date Open'],['onProgress','On Progress'],['pending','Pending'],['resolved','Resolved'],['reopen','Reopen'],['lastUpdate','Last Update'],['closed','Closed']];
 
 $('s-input').addEventListener('input', () => { clearTimeout(sTimer); sTimer = setTimeout(doSearch, 300); });
@@ -518,7 +517,7 @@ async function doSearch(){
     const j = await res.json();
     if (seq !== sSeq) return;
     if (!res.ok) throw new Error(j.error || ('status ' + res.status));
-    sItems = j.items; sActive = null; sResp = j;
+    sItems = j.items; sActive = null; sResp = j; sFacets = j.facets; sQ = q;
     sFilter.year = ''; sFilter.month = ''; sFilter.detail = '';
     renderSearch(j);
   } catch (e) {
@@ -529,37 +528,47 @@ async function doSearch(){
 
 function renderSearch(j){
   const out = $('s-out');
-  if (!j.items.length){ out.innerHTML = '<div class="card"><div class="empty">Tidak ada tiket yang cocok dengan "' + esc(j.q) + '".</div></div>'; return; }
-  const years = [...new Set(sItems.map(r => tsYM(r)).filter(Boolean).map(x => x.y))].sort((a, b) => b - a);
-  const details = [...new Set(sItems.map(r => r.detailSubCategory).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id'));
-  const hasNoDetail = sItems.some(r => !r.detailSubCategory);
-  const opt = (v, label, cur) => '<option value="' + esc(v) + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + esc(label) + '</option>';
+  if (!j.items.length && !j.total){ out.innerHTML = '<div class="card"><div class="empty">Tidak ada tiket yang cocok dengan "' + esc(j.q) + '".</div></div>'; return; }
+  const f = j.facets;
+  const opt = (v, label) => '<option value="' + esc(v) + '">' + esc(label) + '</option>';
   const filters = '<div class="s-filters">' +
-    '<label>Tahun<select id="f-year">' + opt('', 'Semua tahun', sFilter.year) + years.map(y => opt(y, y, sFilter.year)).join('') + '</select></label>' +
-    '<label>Bulan<select id="f-month">' + opt('', 'Semua bulan', sFilter.month) + MONTHS_ID.map((m, i) => opt(i, m, sFilter.month)).join('') + '</select></label>' +
-    '<label>Detail Sub Category<select id="f-detail">' + opt('', 'Semua detail', sFilter.detail) + details.map(d => opt(d, d, sFilter.detail)).join('') + (hasNoDetail ? opt('__none__', '(Tanpa detail)', sFilter.detail) : '') + '</select></label>' +
+    '<label>Tahun<select id="f-year">' + opt('', 'Semua tahun') + f.years.map(y => opt(y, y)).join('') + '</select></label>' +
+    '<label>Bulan<select id="f-month">' + opt('', 'Semua bulan') + MONTHS_ID.map((m, i) => opt(i, m)).join('') + '</select></label>' +
+    '<label>Detail Sub Category<select id="f-detail">' + opt('', 'Semua detail') + f.details.map(d => opt(d, d)).join('') + (f.noDetail ? opt('__none__', '(Tanpa detail)') : '') + '</select></label>' +
     '<button type="button" class="s-reset" id="f-reset">Reset filter</button></div>';
   out.innerHTML = filters + '<div class="hint" id="s-note" style="margin:0 0 10px"></div><div class="s-layout"><div class="card s-list" id="s-list" style="margin:0"></div><div id="s-detail"><div class="card"><div class="empty">Klik salah satu tiket untuk melihat detailnya.</div></div></div></div>';
-  $('f-year').addEventListener('change', e => { sFilter.year = e.target.value; renderList(); });
-  $('f-month').addEventListener('change', e => { sFilter.month = e.target.value; renderList(); });
-  $('f-detail').addEventListener('change', e => { sFilter.detail = e.target.value; renderList(); });
-  $('f-reset').addEventListener('click', () => { sFilter.year = ''; sFilter.month = ''; sFilter.detail = ''; ['f-year','f-month','f-detail'].forEach(id => $(id).value = ''); renderList(); });
+  $('f-year').addEventListener('change', e => { sFilter.year = e.target.value; applyFilter(); });
+  $('f-month').addEventListener('change', e => { sFilter.month = e.target.value; applyFilter(); });
+  $('f-detail').addEventListener('change', e => { sFilter.detail = e.target.value; applyFilter(); });
+  $('f-reset').addEventListener('click', () => { sFilter.year = ''; sFilter.month = ''; sFilter.detail = ''; ['f-year','f-month','f-detail'].forEach(id => $(id).value = ''); applyFilter(); });
   renderList();
+}
+
+// filter dijalankan di server supaya mencakup semua tiket yang cocok, bukan cuma yang tampil
+async function applyFilter(){
+  const seq = ++sSeq;
+  $('s-list').innerHTML = '<div class="empty"><span class="spinner"></span>Memfilter...</div>';
+  try {
+    const qs = '?q=' + encodeURIComponent(sQ) + (sFilter.year !== '' ? '&year=' + encodeURIComponent(sFilter.year) : '') + (sFilter.month !== '' ? '&month=' + encodeURIComponent(sFilter.month) : '') + (sFilter.detail !== '' ? '&detail=' + encodeURIComponent(sFilter.detail) : '');
+    const res = await fetch('/api/ticketing/search' + qs);
+    const j = await res.json();
+    if (seq !== sSeq) return;
+    if (!res.ok) throw new Error(j.error || ('status ' + res.status));
+    sItems = j.items; sResp = j;
+    renderList();
+  } catch (e) {
+    if (seq !== sSeq) return;
+    $('s-list').innerHTML = '<div class="empty">Gagal memfilter: ' + esc(e.message) + '</div>';
+  }
 }
 
 function renderList(){
   const j = sResp;
-  sView = sItems.filter(r => {
-    const ym = tsYM(r);
-    if (sFilter.year !== '' && (!ym || String(ym.y) !== sFilter.year)) return false;
-    if (sFilter.month !== '' && (!ym || String(ym.m) !== sFilter.month)) return false;
-    if (sFilter.detail === '__none__') return !r.detailSubCategory;
-    if (sFilter.detail !== '' && r.detailSubCategory !== sFilter.detail) return false;
-    return true;
-  });
-  const filtered = sView.length !== sItems.length;
-  let note = j.total > j.shown ? 'Menampilkan ' + nf(j.shown) + ' dari ' + nf(j.total) + ' tiket yang cocok (terbaru dulu) — filter hanya berlaku untuk yang tampil; persempit kata kunci untuk hasil lengkap.' : nf(j.total) + ' tiket ditemukan.';
-  if (filtered) note = nf(sView.length) + ' dari ' + nf(sItems.length) + ' tiket sesuai filter. ' + (j.total > j.shown ? 'Hasil pencarian dibatasi ' + nf(j.shown) + ' tiket terbaru.' : '');
+  sView = sItems;
+  const isFiltered = sFilter.year !== '' || sFilter.month !== '' || sFilter.detail !== '';
+  let note = isFiltered ? nf(j.matched) + ' dari ' + nf(j.total) + ' tiket sesuai filter.' : nf(j.total) + ' tiket ditemukan.';
+  if (j.matched > j.shown) note += ' Menampilkan ' + nf(j.shown) + ' terbaru — tambah filter atau persempit kata kunci untuk melihat sisanya.';
+  if (j.capped) note += ' Kata kunci terlalu umum: hanya ' + nf(j.scanCap) + ' tiket terbaru yang dipindai.';
   $('s-note').textContent = note;
   const box = $('s-list');
   if (!sView.length){ box.innerHTML = '<div class="empty">Tidak ada tiket yang sesuai filter.</div>'; return; }

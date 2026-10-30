@@ -263,28 +263,18 @@
         </div>
     </div>
 
-    <div class="card" style="max-width:820px;">
+    <div class="card" style="max-width:1100px;">
       <h2>Populasi Handling Time &amp; Escalation Time</h2>
-      <div style="padding:16px 20px 20px;">
-        <div style="margin-bottom:12px;">
-          <select id="pop-channel-select">
-            <option value="email">Email</option>
-            <option value="whatsapp">WhatsApp Business</option>
-            <option value="voice">Voice</option>
-          </select>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-          <div>
-            <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); margin-bottom:8px;">Handling Time <span style="font-weight:400; text-transform:none; font-size:10.5px;">(date_start → date_end_interaction)</span></div>
-            <table><tbody id="ht-pop-body"></tbody></table>
-          </div>
-          <div>
-            <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); margin-bottom:8px;">Escalation Time <span style="font-weight:400; text-transform:none; font-size:10.5px;">(date_start → date_open)</span></div>
-            <table><tbody id="esc-pop-body"></tbody></table>
-          </div>
-        </div>
+      <div style="padding:14px 20px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <select id="pop-channel-select">
+          <option value="email">Email</option>
+          <option value="whatsapp">WhatsApp Business</option>
+          <option value="voice">Voice</option>
+        </select>
+        <span style="font-size:11.5px; color:var(--slate-soft);">2 sudut pandang: batas 3 menit &amp; 10 menit — masing-masing untuk Handling Time (date_start → date_end_interaction) dan Escalation Time (date_start → date_open).</span>
       </div>
     </div>
+    <div id="pop-sections" style="max-width:1100px;"></div>
   </div>
 
   <section class="result" id="result">
@@ -1648,6 +1638,7 @@ function copyCardAsImage(cardEl, btnEl){
 }
 
 function enhanceCopyButtons(rootId){
+  return; // digantikan oleh /copy-tools.js (Copy Grafik + Copy Tabel terpisah)
   const root = document.getElementById(rootId);
   if (!root) return;
   root.querySelectorAll('.card').forEach(card => {
@@ -2132,23 +2123,100 @@ function refreshPopChannelOptions(){
   sel.innerHTML = available.map(c => `<option value="${c}">${CHANNEL_LABEL[c]}</option>`).join('');
   renderPopulationTimes();
 }
-function bucketRowsHtml(bucket, metricLabel){
-  if (!bucket){
-    return `<tr><td class="label" colspan="3">Data tidak tersedia.</td></tr>`;
+function popFmtDate(d){
+  return d.getDate() + '-' + MONTH_ABBR[d.getMonth()] + '-' + d.getFullYear() + ' ' +
+    String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function popFmtDur(min){
+  if (min < 1) return Math.round(min * 60) + ' dtk';
+  if (min >= 60) return Math.floor(min / 60) + ' j ' + Math.round(min % 60) + ' mnt';
+  return min.toFixed(2) + ' mnt';
+}
+function popEsc(v){
+  return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// Email -> customer email; Voice/WhatsApp -> nomor HP (fallback ke yang tersedia).
+function popContact(r, chan){
+  const email = (r.customerEmail || '').toString().trim();
+  const phone = (r.phone == null ? '' : r.phone).toString().trim();
+  return (chan === 'email' ? (email || phone) : (phone || email)) || '-';
+}
+function popItems(rows, startField, endField){
+  return (rows || [])
+    .filter(r => r[startField] instanceof Date && r[endField] instanceof Date)
+    .map(r => ({ r, v: (r[endField] - r[startField]) / 60000 }))
+    .filter(x => x.v >= 0);
+}
+function popTopCats(items, n){
+  const counts = {};
+  items.forEach(x => { const k = x.r.category || '(tanpa kategori)'; counts[k] = (counts[k] || 0) + 1; });
+  return Object.keys(counts).map(k => ({ label: k, count: counts[k] }))
+    .sort((a,b) => b.count - a.count).slice(0, n);
+}
+function popCatText(top, total){
+  if (!top.length) return '-';
+  return top.map(c => `${popEsc(c.label)} (${c.count}, ${(c.count/total*100).toFixed(1)}%)`).join(', ');
+}
+function popBuildCard(chan, metricLabel, startField, endField, T){
+  const items = popItems(curr.ticket.byChannel[chan], startField, endField);
+  const title = `${metricLabel} — Batas ${T} Menit <span style="font-weight:400;color:var(--slate-soft);font-size:12px;">${CHANNEL_LABEL[chan] || chan}</span>`;
+  if (!items.length){
+    return `<div class="card" style="max-width:1100px;"><h2>${title}</h2><div style="padding:16px 20px; font-size:13px; color:var(--slate-soft);">Data tanggal untuk ${metricLabel} tidak tersedia pada channel ini.</div></div>`;
   }
-  return `
-    <tr><td class="label">Populasi ${metricLabel} &lt; 3 Menit</td><td class="num">${bucket.under3}</td><td class="num">${bucket.under3Pct.toFixed(2)}%</td></tr>
-    <tr><td class="label">Populasi ${metricLabel} &gt;= 3 Menit</td><td class="num">${bucket.over3}</td><td class="num">${bucket.over3Pct.toFixed(2)}%</td></tr>
-    <tr><td class="label" style="font-weight:700;">Total Populasi</td><td class="num" style="font-weight:700;">${bucket.total}</td><td class="num"></td></tr>`;
+  const total = items.length;
+  const lo = items.filter(x => x.v < T);
+  const hi = items.filter(x => x.v >= T);
+  const pct = n => (n / total * 100).toFixed(2) + '%';
+  const countsTbl = `
+    <table><thead><tr><th>Populasi ${metricLabel}</th><th class="num">Count</th><th class="num">%</th></tr></thead><tbody>
+      <tr><td class="label">&lt; ${T} Menit</td><td class="num">${lo.length}</td><td class="num">${pct(lo.length)}</td></tr>
+      <tr><td class="label">&ge; ${T} Menit</td><td class="num">${hi.length}</td><td class="num">${pct(hi.length)}</td></tr>
+      <tr><td class="label" style="font-weight:700;">Total Populasi</td><td class="num" style="font-weight:700;">${total}</td><td class="num"></td></tr>
+    </tbody></table>`;
+
+  // Sample tercepat & terlama di tiap kelompok
+  const sampleRow = (tag, x) => `
+      <tr><td class="label">${tag}</td><td>${popFmtDate(x.r[startField])}</td><td>${popEsc(x.r.detailSubCategory || x.r.category || '-')}</td><td>${popEsc(CHANNEL_LABEL[chan] || chan)}</td><td class="num">${popFmtDur(x.v)}</td><td>${popEsc(popContact(x.r, chan))}</td></tr>`;
+  const extremes = (group, label) => {
+    if (!group.length) return '';
+    let fast = group[0], slow = group[0];
+    group.forEach(x => { if (x.v < fast.v) fast = x; if (x.v > slow.v) slow = x; });
+    return sampleRow(`${label} — Tercepat`, fast) + sampleRow(`${label} — Terlama`, slow);
+  };
+  const sampleTbl = `
+    <table><thead><tr><th>Sample</th><th>Date</th><th>Detail Sub Category</th><th>Channel</th><th class="num">${metricLabel}</th><th>${chan === 'email' ? 'Cust Email' : 'Cust Phone'}</th></tr></thead><tbody>
+      ${extremes(lo, `&lt; ${T} Menit`)}${extremes(hi, `&ge; ${T} Menit`)}
+    </tbody></table>`;
+
+  // Insight: top 3 kategori per kelompok
+  const topLo = popTopCats(lo, 3), topHi = popTopCats(hi, 3);
+  const insightRow = (label, top, g) => `<tr><td class="label">${label}</td><td class="num">${g.length}</td><td>${popCatText(top, g.length)}</td></tr>`;
+  const insightTbl = `
+    <table><thead><tr><th>Kelompok</th><th class="num">Count</th><th>Top 3 Kategori (jumlah, % dalam kelompok)</th></tr></thead><tbody>
+      ${insightRow(`&lt; ${T} Menit`, topLo, lo)}${insightRow(`&ge; ${T} Menit`, topHi, hi)}
+    </tbody></table>`;
+  const narr = [];
+  if (topLo.length) narr.push(`Pada interaksi dengan ${metricLabel} <b>&lt; ${T} menit</b>, kategori terbanyak adalah <b>${popEsc(topLo[0].label)}</b> (${topLo[0].count} dari ${lo.length} interaksi, ${(topLo[0].count/lo.length*100).toFixed(1)}%).`);
+  if (topHi.length) narr.push(`Pada ${metricLabel} <b>&ge; ${T} menit</b>, kategori terbanyak adalah <b>${popEsc(topHi[0].label)}</b> (${topHi[0].count} dari ${hi.length} interaksi, ${(topHi[0].count/hi.length*100).toFixed(1)}%).`);
+
+  const sub = t => `<div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); margin:16px 0 6px;">${t}</div>`;
+  return `<div class="card" style="max-width:1100px;"><h2>${title}</h2>
+    <div style="padding:6px 20px 20px;">
+      ${sub('Populasi')}${countsTbl}
+      ${sub('Sample Interaksi Tercepat &amp; Terlama')}${sampleTbl}
+      ${sub('Insight Top Kategori')}${insightTbl}
+      <p style="margin:10px 0 0; font-size:13px; line-height:1.55;">${narr.join(' ')}</p>
+    </div></div>`;
 }
 function renderPopulationTimes(){
   const chan = document.getElementById('pop-channel-select').value;
-  if (!curr.ticket || !chan || !curr.ticket.byChannel[chan]) return;
-  const rows = curr.ticket.byChannel[chan];
-  const ht = computePopulationBuckets(rows, 'dateStart', 'dateEnd');
-  const esc = computePopulationBuckets(rows, 'dateStart', 'dateOpen');
-  document.getElementById('ht-pop-body').innerHTML = bucketRowsHtml(ht, 'Handling Time');
-  document.getElementById('esc-pop-body').innerHTML = bucketRowsHtml(esc, 'Escalation Time');
+  const host = document.getElementById('pop-sections');
+  if (!curr.ticket || !chan || !curr.ticket.byChannel[chan]){ host.innerHTML = ''; return; }
+  host.innerHTML =
+    popBuildCard(chan, 'Handling Time',    'dateStart', 'dateEnd',  3) +
+    popBuildCard(chan, 'Handling Time',    'dateStart', 'dateEnd', 10) +
+    popBuildCard(chan, 'Escalation Time',  'dateStart', 'dateOpen', 3) +
+    popBuildCard(chan, 'Escalation Time',  'dateStart', 'dateOpen',10);
 }
 document.getElementById('pop-channel-select').addEventListener('change', renderPopulationTimes);
 

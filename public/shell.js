@@ -1,4 +1,4 @@
-/* Injects the left sidebar (Monthly / Summary / Daily / QC Sampler / Rostering / Ticketing) into any
+/* Injects the left sidebar (Summary / Monthly / Daily / Ticketing / QC / Rostering / Setting) into any
    page. Set <body data-section="monthly|summary|daily|qc"> to mark the
    active item. Kept dependency-free so it works on every page, including
    the simpler ones that share no other JS. */
@@ -15,12 +15,12 @@
     rostering: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 6v12M11 6v12M15 6v12"/></svg>'
   };
   var items = [
-    { key: 'monthly', href: '/',           label: 'Monthly Report Interaction' },
     { key: 'summary', href: '/summary',    label: 'Summary Interaction' },
+    { key: 'monthly', href: '/',           label: 'Monthly Report Interaction' },
     { key: 'daily',   href: '/daily',      label: 'Daily Report Interaction' },
+    { key: 'ticketing', href: '/ticketing', label: 'Ticketing' },
     { key: 'qc',      href: '/qc-sampler', label: 'QC Sampler' },
     { key: 'rostering', href: '/rostering', label: 'Rostering' },
-    { key: 'ticketing', href: '/ticketing', label: 'Ticketing' },
     { key: 'setting', href: '/config', label: 'Setting' }
   ];
   var active = document.body.getAttribute('data-section') || 'monthly';
@@ -49,6 +49,16 @@
     '<button type="button" class="sb-expand-btn" id="sb-expand-btn" aria-label="Buka menu" title="Buka menu">' +
       '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>' +
     '</button>';
+
+  // Tombol Copy Grafik / Copy Tabel (Monthly, Summary, Daily, Ticketing).
+  // Dimuat setelah DOM selesai karena shell.js jalan sebelum konten halaman.
+  function loadCopyTools() {
+    var s = document.createElement('script');
+    s.src = '/copy-tools.js';
+    document.body.appendChild(s);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadCopyTools);
+  else loadCopyTools();
 
   document.body.classList.add('has-sidebar');
   if (collapsed) document.body.classList.add('sidebar-collapsed');

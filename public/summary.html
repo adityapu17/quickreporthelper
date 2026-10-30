@@ -582,7 +582,7 @@ async function loadInsight(retry){
   const month = retry ? 'all' : sel.value;
   const produk = document.getElementById('insProduk').value;
   const seq = ++insSeq;
-  document.getElementById('insList').innerHTML = '<div class="ins-empty">Memuat...</div>';
+  document.getElementById('insList').removeAttribute('data-qr-tree'); document.getElementById('insList').innerHTML = '<div class="ins-empty">Memuat...</div>';
   try {
     const res = await fetch('/api/summary/insight?year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month) + '&produk=' + encodeURIComponent(produk));
     const j = await res.json();
@@ -630,8 +630,43 @@ function renderInsight(){
   document.getElementById('insInfo').textContent = 'Total ' + insNf(insData.total) + ' interaksi · ' + (year === 'all' ? 'Semua tahun' : 'Tahun ' + year) + ' · ' + (month === 'all' ? 'Semua bulan' : INS_MONTHS[Number(month)]) + ' · Produk: ' + prodSel.options[prodSel.selectedIndex].text + '. Klik baris untuk melihat rinciannya. Interaksi = jumlah baris Report Ticket yang tersimpan di database.';
   const v = insData.views[document.getElementById('insView').value];
   const box = document.getElementById('insList');
-  if (!insData.total || !v || !v.nodes.length) { box.innerHTML = '<div class="ins-empty">Tidak ada data tiket di database untuk filter ini.</div>'; return; }
+  if (!insData.total || !v || !v.nodes.length) { box.removeAttribute('data-qr-tree'); box.innerHTML = '<div class="ins-empty">Tidak ada data tiket di database untuk filter ini.</div>'; return; }
   box.innerHTML = '<div class="ins-list">' + insRows(v.nodes, v.more, insData.total, 0, 'r') + '</div>';
+  registerInsightTree(v);
+}
+// Data untuk tombol Copy Summary / Copy Full Tree (lihat copy-tools.js)
+var INS_LEVELS = {
+  cat: ['Kategori', 'Company'], comp: ['Company', 'Kategori'],
+  type: ['Jenis', 'Kategori', 'Company'], treeCat: ['Produk', 'Kategori', 'Company'],
+  custCat: ['Customer Category', 'Company', 'Kategori'], treeComp: ['Produk', 'Company', 'Kategori']
+};
+function registerInsightTree(v){
+  var viewKey = document.getElementById('insView').value;
+  var levels = INS_LEVELS[viewKey] || ['Nama'];
+  var pctTxt = function (count, total) { return (total ? String(Math.round(count / total * 1000) / 10).replace('.', ',') : '0') + '%'; };
+  window.QR_TREE_DATA = window.QR_TREE_DATA || {};
+  window.QR_TREE_DATA['summary-insight'] = {
+    summary: function () {
+      var rows = v.nodes.map(function (n, i) { return [i + 1, n.name, insNf(n.count), pctTxt(n.count, insData.total)]; });
+      if (v.more) rows.push(['', '+ ' + insNf(v.more.distinct) + ' lainnya', insNf(v.more.count), pctTxt(v.more.count, insData.total)]);
+      return { head: ['#', levels[0], 'Jumlah Interaksi', 'Persen'], num: [2, 3], rows: rows };
+    },
+    full: function () {
+      var rows = [];
+      var indent = function (lv) { return new Array(lv * 4 + 1).join('\u00A0'); };
+      (function walk(nodes, more, parentTotal, lv) {
+        nodes.forEach(function (n) {
+          var r = [indent(lv) + n.name, insNf(n.count), pctTxt(n.count, parentTotal)];
+          if (lv === 0) r.bold = true;
+          rows.push(r);
+          if (n.children && n.children.nodes && n.children.nodes.length) walk(n.children.nodes, n.children.more, n.count, lv + 1);
+        });
+        if (more) rows.push([indent(lv) + '+ ' + insNf(more.distinct) + ' lainnya', insNf(more.count), pctTxt(more.count, parentTotal)]);
+      })(v.nodes, v.more, insData.total, 0);
+      return { head: [levels.join(' > '), 'Jumlah Interaksi', 'Persen (dari induk)'], num: [1, 2], rows: rows };
+    }
+  };
+  document.getElementById('insList').setAttribute('data-qr-tree', 'summary-insight');
 }
 document.getElementById('insList').addEventListener('click', (e) => {
   const b = e.target.closest('.ins-row[data-k]'); if (!b) return;

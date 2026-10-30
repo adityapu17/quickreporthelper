@@ -243,29 +243,6 @@
     Belum ada data - upload file di atas, atau muat dari database.
   </div>
 
-  <div id="extra-analysis" style="display:none;">
-    <div class="card" style="max-width:820px;">
-      <h2>Filter &amp; Analisa Top Kategori</h2>
-      <div style="padding:16px 20px 20px;">
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <select id="filter-type-select">
-            <option value="produk">Filter by Produk</option>
-            <option value="company">Filter by Company</option>
-            <option value="channel">Filter by Channel</option>
-          </select>
-          <select id="filter-value-select"><option>-</option></select>
-          <select id="filter-date-select"><option value="all">Semua Tanggal</option></select>
-        </div>
-        <table>
-          <thead><tr><th>#</th><th>Kategori</th><th class="num">Jumlah</th></tr></thead>
-          <tbody id="filter-result-body"></tbody>
-        </table>
-        </div>
-    </div>
-
-    <div id="pop-sections" style="max-width:1100px;"></div>
-  </div>
-
   <section class="result" id="result">
     <div class="card" id="service-type-card">
       <h2>Service Type <span id="st-channel-label"></span></h2>
@@ -274,14 +251,14 @@
     <div class="card">
       <h2>Parameter Indicator <span id="pi-channel-label"></span></h2>
       <table>
-        <thead><tr><th>Parameter Indicator</th><th class="num" id="th-prev-pi">Bulan Lalu</th><th class="num" id="th-curr-pi">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
+        <thead><tr><th>Parameter Indicator</th><th class="num" id="th-prev-pi">Bulan Lalu</th><th class="num" id="th-curr-pi">Bulan Ini</th><th class="num">Change (%)</th></tr></thead>
         <tbody id="pi-body"></tbody>
       </table>
     </div>
     <div class="card">
       <h2>Kategori Produk <span id="kp-channel-label"></span></h2>
       <table>
-        <thead><tr><th>Kategori Produk</th><th class="num" id="th-prev-kp">Bulan Lalu</th><th class="num" id="th-curr-kp">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
+        <thead><tr><th>Kategori Produk</th><th class="num" id="th-prev-kp">Bulan Lalu</th><th class="num" id="th-curr-kp">Bulan Ini</th><th class="num">Change (%)</th></tr></thead>
         <tbody id="kp-body"></tbody>
       </table>
       <div class="narrative" id="kp-narrative"></div>
@@ -289,14 +266,14 @@
     <div class="card" id="top-informasi-card">
       <h2>Top 3 Informasi</h2>
       <table>
-        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topinfo">Bulan Lalu</th><th class="num" id="th-curr-topinfo">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
+        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topinfo">Bulan Lalu</th><th class="num" id="th-curr-topinfo">Bulan Ini</th><th class="num">Change (%)</th></tr></thead>
         <tbody id="top-informasi-body"></tbody>
       </table>
     </div>
     <div class="card" id="top-keluhan-card">
       <h2>Top 3 Keluhan &amp; Permintaan</h2>
       <table>
-        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topkel">Bulan Lalu</th><th class="num" id="th-curr-topkel">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
+        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topkel">Bulan Lalu</th><th class="num" id="th-curr-topkel">Bulan Ini</th><th class="num">Change (%)</th></tr></thead>
         <tbody id="top-keluhan-body"></tbody>
       </table>
     </div>
@@ -331,7 +308,7 @@
     <div class="card">
       <h2>Kategori Produk <span style="font-weight:400;color:var(--slate-soft);font-size:12px;">- Semua Channel</span></h2>
       <table>
-        <thead><tr><th>Kategori Produk</th><th class="num" id="ru-th-prev">Bulan Lalu</th><th class="num" id="ru-th-curr">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
+        <thead><tr><th>Kategori Produk</th><th class="num" id="ru-th-prev">Bulan Lalu</th><th class="num" id="ru-th-curr">Bulan Ini</th><th class="num">Change (%)</th></tr></thead>
         <tbody id="ru-kp-body"></tbody>
       </table>
     </div>
@@ -356,6 +333,30 @@
       <div id="ru-donut-container" style="display:flex; gap:24px; justify-content:center; padding:20px; flex-wrap:wrap;"></div>
     </div>
   </section>
+
+  <div id="extra-analysis" style="display:none;">
+    <div class="card" style="max-width:820px;">
+      <h2>Filter &amp; Analisa Top Kategori</h2>
+      <div style="padding:16px 20px 20px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <select id="filter-type-select">
+            <option value="produk">Filter by Produk</option>
+            <option value="company">Filter by Company</option>
+            <option value="channel">Filter by Channel</option>
+          </select>
+          <select id="filter-value-select"><option>-</option></select>
+          <select id="filter-date-select"><option value="all">Semua Tanggal</option></select>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Kategori</th><th class="num">Jumlah</th></tr></thead>
+          <tbody id="filter-result-body"></tbody>
+        </table>
+        </div>
+    </div>
+
+    <div id="pop-sections" style="max-width:1100px;"></div>
+  </div>
+
 
 </div>
 

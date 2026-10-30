@@ -350,6 +350,27 @@ function slaBar(on, bad){
     '<div class="bar-legend"><span>On target <b>' + nf(on) + '</b></span><span>Breach <b>' + nf(bad) + '</b></span></div>';
 }
 
+// Data untuk tombol Copy Summary / Copy Full Tree (lihat copy-tools.js)
+function registerTicketTree(s){
+  var pctTxt = function (c, total) { return (total ? String(Math.round(c / total * 1000) / 10).replace('.', ',') : '0') + '%'; };
+  window.QR_TREE_DATA = window.QR_TREE_DATA || {};
+  window.QR_TREE_DATA['ticket-cat'] = {
+    summary: function () {
+      return { head: ['#', 'Kategori', 'Jumlah Tiket', 'Persen'], num: [2, 3],
+        rows: (s.topCategories || []).map(function (c, i) { return [i + 1, c.name, nf(c.count), pctTxt(c.count, s.total)]; }) };
+    },
+    full: function () {
+      var rows = [], ind = '\u00A0\u00A0\u00A0\u00A0';
+      (s.topCategories || []).forEach(function (c, i) {
+        var r = [(i + 1) + '. ' + c.name, nf(c.count), pctTxt(c.count, s.total)]; r.bold = true; rows.push(r);
+        (c.companies || []).forEach(function (x) { rows.push([ind + x.name, nf(x.count), pctTxt(x.count, c.count)]); });
+        if (c.otherCompanies && c.otherCompanies.distinct) rows.push([ind + '+ ' + nf(c.otherCompanies.distinct) + ' perusahaan lain', nf(c.otherCompanies.count), pctTxt(c.otherCompanies.count, c.count)]);
+      });
+      return { head: ['Kategori / Company', 'Jumlah Tiket', 'Persen (dari induk)'], num: [1, 2], rows: rows };
+    }
+  };
+}
+
 function renderDetail(){
   const s = data.subs[activeSub];
   const sevCls = { Critical:'sev-critical', High:'sev-high', Medium:'sev-medium', Low:'sev-low' };
@@ -421,7 +442,7 @@ function renderDetail(){
   // 15. top 10 kategori terbanyak (klik untuk lihat perusahaan)
   h += '<div class="sec-title">Top 10 Kategori Tiket Terbanyak </div>';
   if (!s.topCategories.length) h += '<div class="hint">Belum ada tiket di sub category ini.</div>';
-  else h += '<div class="cat-list">' + s.topCategories.map((c, i) => {
+  else h += '<div class="cat-list" data-qr-tree="ticket-cat">' + s.topCategories.map((c, i) => {
     const share = s.total ? Math.round(c.count / s.total * 1000) / 10 : 0;
     const open = catOpen === i;
     let item = '<button type="button" class="cat-item' + (open ? ' on' : '') + '" data-c="' + i + '" aria-expanded="' + open + '"><span class="cat-rank">' + (i + 1) + '</span><span class="cat-name" title="' + esc(c.name) + '">' + esc(c.name) + '</span><span class="cat-count">' + nf(c.count) + ' <span class="muted">(' + String(share).replace('.', ',') + '%)</span></span></button>';
@@ -433,6 +454,7 @@ function renderDetail(){
     return item;
   }).join('') + '</div>';
 
+  registerTicketTree(s);
   $('detail').innerHTML = h;
   document.querySelectorAll('#detail .cat-item').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.c; catOpen = catOpen === i ? null : i; renderDetail(); }));
   const sk = $('skipped-box');

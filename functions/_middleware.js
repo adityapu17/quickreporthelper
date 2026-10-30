@@ -15,7 +15,7 @@ const SECURITY_HEADERS = {
   // 'unsafe-inline' on style-src AND script-src keeps inline <style>/<script>
   // blocks working (login.html etc. use inline scripts).
   // TODO: migrate inline scripts to external .js files to restore strict CSP
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'",
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',

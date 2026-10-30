@@ -61,6 +61,9 @@
   .subtabs{display:flex; gap:8px; margin-bottom:18px;}
   .subtab-btn{ font-family:var(--sans); font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--line); padding:8px 14px; background:var(--card); color:var(--slate); cursor:pointer; }
   .subtab-btn.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .sync-db-btn{ font-family:var(--sans); font-size:13px; font-weight:600; border-radius:7px; border:1px solid var(--teal); padding:8px 14px; background:var(--teal-soft,#e4f2ef); color:var(--teal); cursor:pointer; margin-left:auto; }
+  .sync-db-btn:hover{ background:#d5ece7; }
+  .sync-db-btn:disabled{ opacity:.6; cursor:wait; }
   .subview{ display:none; }
   .subview.active{ display:block; }
 
@@ -149,7 +152,7 @@
   <div class="header-account">
     <span id="whoami"></span>
     <div class="bot-helper">
-      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/robot.png" alt="Bantuan"></button>
+      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/help-icon.png" alt="Bantuan"></button>
       <div class="bot-bubble" id="bot-bubble">
         <b>Cara pakai halaman ini</b>
         Input total interaksi bulanan per Channel (Email/Voice/WhatsApp) dan per Produk (Perisai/E-Meterai) lewat tab Input Data. Dashboard nunjukin tren &amp; breakdown-nya, tab Kelola Data buat edit/hapus baris yang udah ada.
@@ -163,6 +166,7 @@
     <button class="subtab-btn active" data-view="dashboard">Dashboard</button>
     <button class="subtab-btn" data-view="input">Input Data</button>
     <button class="subtab-btn" data-view="manage">Kelola Data</button>
+    <button id="btn-sync-db" class="sync-db-btn" title="Hitung ulang data Summary dari semua bulan yang pernah diupload ke database">Sync with DB</button>
   </div>
 
   <section id="view-dashboard" class="subview active">
@@ -349,6 +353,22 @@ async function loadAll(){
   } catch (err) { toast('Gagal memuat data dari server: ' + err.message, true); }
   renderAll();
 }
+
+// ---------- Sync with DB ----------
+document.getElementById('btn-sync-db').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-sync-db');
+  if (!confirm('Sync with DB akan menghitung ulang Total Interaksi, Response Time, AHT, SCR, dan Produk dari semua bulan yang pernah diupload di Monthly Report. Data Summary di bulan yang sama akan diperbarui. Lanjut?')) return;
+  btn.disabled = true; btn.textContent = 'Sinkronisasi...';
+  try {
+    const r = await apiSend('/api/summary/sync', 'POST');
+    await loadAll();
+    toast('Sync selesai: ' + r.periods + ' bulan, ' + r.channelRows + ' baris channel, ' + r.produkRows + ' baris produk');
+  } catch (err) {
+    toast('Sync gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sync with DB';
+  }
+});
 
 // ---------- top-level view tabs ----------
 document.querySelectorAll('.subtabs > .subtab-btn').forEach(btn => {

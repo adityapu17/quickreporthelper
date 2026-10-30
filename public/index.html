@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monthly Report Interaction — Intan</title>
+<title>Monthly Report Interaction - Intan</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -240,7 +240,7 @@
   </div>
 
   <div class="empty-state" id="empty-state">
-    Belum ada data — upload file di atas, atau muat dari database.
+    Belum ada data - upload file di atas, atau muat dari database.
   </div>
 
   <div id="extra-analysis" style="display:none;">
@@ -253,7 +253,7 @@
             <option value="company">Filter by Company</option>
             <option value="channel">Filter by Channel</option>
           </select>
-          <select id="filter-value-select"><option>—</option></select>
+          <select id="filter-value-select"><option>-</option></select>
           <select id="filter-date-select"><option value="all">Semua Tanggal</option></select>
         </div>
         <table>
@@ -263,17 +263,6 @@
         </div>
     </div>
 
-    <div class="card" style="max-width:1100px;">
-      <h2>Populasi Handling Time &amp; Escalation Time</h2>
-      <div style="padding:14px 20px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-        <select id="pop-channel-select">
-          <option value="email">Email</option>
-          <option value="whatsapp">WhatsApp Business</option>
-          <option value="voice">Voice</option>
-        </select>
-        <span style="font-size:11.5px; color:var(--slate-soft);">2 sudut pandang: batas 3 menit &amp; 10 menit — masing-masing untuk Handling Time (date_start → date_end_interaction) dan Escalation Time (date_start → date_open).</span>
-      </div>
-    </div>
     <div id="pop-sections" style="max-width:1100px;"></div>
   </div>
 
@@ -285,14 +274,14 @@
     <div class="card">
       <h2>Parameter Indicator <span id="pi-channel-label"></span></h2>
       <table>
-        <thead><tr><th>Parameter Indicator</th><th class="num" id="th-prev-pi">Bulan Lalu</th><th class="num" id="th-curr-pi">Bulan Ini</th><th class="num">Growth</th></tr></thead>
+        <thead><tr><th>Parameter Indicator</th><th class="num" id="th-prev-pi">Bulan Lalu</th><th class="num" id="th-curr-pi">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
         <tbody id="pi-body"></tbody>
       </table>
     </div>
     <div class="card">
       <h2>Kategori Produk <span id="kp-channel-label"></span></h2>
       <table>
-        <thead><tr><th>Kategori Produk</th><th class="num" id="th-prev-kp">Bulan Lalu</th><th class="num" id="th-curr-kp">Bulan Ini</th><th class="num">Growth</th></tr></thead>
+        <thead><tr><th>Kategori Produk</th><th class="num" id="th-prev-kp">Bulan Lalu</th><th class="num" id="th-curr-kp">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
         <tbody id="kp-body"></tbody>
       </table>
       <div class="narrative" id="kp-narrative"></div>
@@ -300,14 +289,14 @@
     <div class="card" id="top-informasi-card">
       <h2>Top 3 Informasi</h2>
       <table>
-        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topinfo">Bulan Lalu</th><th class="num" id="th-curr-topinfo">Bulan Ini</th><th class="num">Growth</th></tr></thead>
+        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topinfo">Bulan Lalu</th><th class="num" id="th-curr-topinfo">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
         <tbody id="top-informasi-body"></tbody>
       </table>
     </div>
     <div class="card" id="top-keluhan-card">
       <h2>Top 3 Keluhan &amp; Permintaan</h2>
       <table>
-        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topkel">Bulan Lalu</th><th class="num" id="th-curr-topkel">Bulan Ini</th><th class="num">Growth</th></tr></thead>
+        <thead><tr><th>Kategori</th><th class="num" id="th-prev-topkel">Bulan Lalu</th><th class="num" id="th-curr-topkel">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
         <tbody id="top-keluhan-body"></tbody>
       </table>
     </div>
@@ -340,9 +329,9 @@
 
   <section class="result" id="rollup-result">
     <div class="card">
-      <h2>Kategori Produk <span style="font-weight:400;color:var(--slate-soft);font-size:12px;">— Semua Channel</span></h2>
+      <h2>Kategori Produk <span style="font-weight:400;color:var(--slate-soft);font-size:12px;">- Semua Channel</span></h2>
       <table>
-        <thead><tr><th>Kategori Produk</th><th class="num" id="ru-th-prev">Bulan Lalu</th><th class="num" id="ru-th-curr">Bulan Ini</th><th class="num">Growth</th></tr></thead>
+        <thead><tr><th>Kategori Produk</th><th class="num" id="ru-th-prev">Bulan Lalu</th><th class="num" id="ru-th-curr">Bulan Ini</th><th class="num" title="Month over Month">MoM</th></tr></thead>
         <tbody id="ru-kp-body"></tbody>
       </table>
     </div>
@@ -358,7 +347,7 @@
     </div>
 
     <div class="card">
-      <h2>Prosentase Eskalasi berbanding Total Main Category <span style="font-weight:400;color:var(--slate-soft);font-size:11px;">— asumsi: escalated / total per mainCategory, cek dulu ya</span></h2>
+      <h2>Prosentase Eskalasi berbanding Total Main Category <span style="font-weight:400;color:var(--slate-soft);font-size:11px;">- asumsi: escalated / total per mainCategory, cek dulu ya</span></h2>
       <div id="ru-escalation-container" style="padding:16px 20px;"></div>
     </div>
 
@@ -403,7 +392,7 @@ function readSheet(arrayBuffer){
   if (!rows.length) throw new Error('Sheet kosong.');
   const headers = rows[0].map(h => (h || '').toString().trim());
   // Excel's leading apostrophe (its "force this cell to be text" marker) can
-  // end up as a literal character in the parsed value — strip it so a value
+  // end up as a literal character in the parsed value - strip it so a value
   // like "'Pemungut" matches cleanly instead of silently failing comparisons.
   const dataRows = rows.slice(1).map(row => row.map(cell =>
     typeof cell === 'string' && cell.charAt(0) === "'" ? cell.slice(1) : cell
@@ -505,7 +494,7 @@ function parseTicketFile(buf, forced){
     if (!chan) return;
     if (!byChannel[chan]) byChannel[chan] = [];
     // Manual/Group tickets don't carry a reliable date_start_interaction
-    // for daily grouping — use date_open for that channel specifically.
+    // for daily grouping - use date_open for that channel specifically.
     const dateField = chan === 'manual' ? idx.date_open : idx.date_start;
     const rawObj = {};
     headers.forEach((h, hi) => {
@@ -547,7 +536,7 @@ function parseTicketFile(buf, forced){
     periodLabel = MONTHS[useP.month] + ' ' + useP.year;
     periodYear = useP.year; periodMonth = useP.month;
   }
-  // Keep only rows whose relevant date actually falls in the report month —
+  // Keep only rows whose relevant date actually falls in the report month -
   // drops spillover records (e.g. a Manual ticket opened just after month-end).
   if (periodYear !== null){
     Object.keys(byChannel).forEach(chan => {
@@ -692,7 +681,7 @@ function computeCategoryChannelBreakdown(rows, categoryName){
   return { total, breakdown: result };
 }
 // Assumption (flagged for the user to confirm): escalation rate per mainCategory,
-// scoped to E-Meterai + Digital Sign interactions across all channels —
+// scoped to E-Meterai + Digital Sign interactions across all channels -
 // escalated tickets in that mainCategory / all tickets in that mainCategory.
 function computeEscalationByMainCategory(rows){
   const scoped = rows.filter(r => r.category === 'E-Meterai' || r.category === 'Digital Sign');
@@ -789,15 +778,15 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
     const MIN_INSIDE_H = 12;
     const overflow = [];
     if (d.em > 0){
-      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${d.em}</text>`;
+      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${fmtInt(d.em)}</text>`;
       else overflow.push({ v: d.em, c: emColor });
     }
     if (d.ds > 0){
-      if (dsH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(dsY + dsH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${d.ds}</text>`;
+      if (dsH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(dsY + dsH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${fmtInt(d.ds)}</text>`;
       else overflow.push({ v: d.ds, c: dsColor });
     }
     overflow.forEach((o, k) => {
-      bars += `<text x="${x + barW/2}" y="${(dsY - 4 - k*12).toFixed(1)}" text-anchor="middle" font-size="10" fill="${o.c}" font-weight="700" pointer-events="none">${o.v}</text>`;
+      bars += `<text x="${x + barW/2}" y="${(dsY - 4 - k*12).toFixed(1)}" text-anchor="middle" font-size="10" fill="${o.c}" font-weight="700" pointer-events="none">${fmtInt(o.v)}</text>`;
     });
     labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 16}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${DAY_ABBR[d.date.getDay()]}</text>`;
     labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 30}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${d.date.getDate()}</text>`;
@@ -825,10 +814,10 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
         const rows = rowsByDayProduct[dateKey + '|' + product] || [];
         const top = topCategoriesFor(rows, 10);
         const dd = document.getElementById('stacked-drilldown');
-        if (!top.length){ dd.innerHTML = `<b>${dateKey} — ${product}</b>: tidak ada data kategori.`; fadeInEl(dd); return; }
-        dd.innerHTML = `<div style="font-weight:700; color:var(--ink); margin-bottom:6px;">Top Kategori — ${dateKey} · ${product} (${rows.length} interaksi)</div>` +
+        if (!top.length){ dd.innerHTML = `<b>${dateKey} - ${product}</b>: tidak ada data kategori.`; fadeInEl(dd); return; }
+        dd.innerHTML = `<div style="font-weight:700; color:var(--ink); margin-bottom:6px;">Top Kategori - ${dateKey} · ${product} (${fmtInt(rows.length)} interaksi)</div>` +
           '<table style="width:100%; max-width:520px;"><tbody>' +
-          top.map((c,i) => `<tr><td style="padding:3px 8px 3px 0; font-family:var(--sans);">${i+1}. ${c.label}</td><td class="num" style="padding:3px 0; font-family:var(--mono); text-align:right;">${c.count}</td></tr>`).join('') +
+          top.map((c,i) => `<tr><td style="padding:3px 8px 3px 0; font-family:var(--sans);">${i+1}. ${c.label}</td><td class="num" style="padding:3px 0; font-family:var(--mono); text-align:right;">${fmtInt(c.count)}</td></tr>`).join('') +
           '</tbody></table>';
         fadeInEl(dd);
       });
@@ -1093,7 +1082,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
     const clickable = d.count > 0 && rowsByDay;
     bars += `<rect data-date-key="${dateKey}" x="${x}" y="${y}" width="${barW}" height="${Math.max(h, d.count>0?1:0)}" rx="3" fill="${barColor}" ${clickable ? 'style="cursor:pointer;"' : ''}></rect>`;
     if (d.count > 0){
-      bars += `<text data-date-key="${dateKey}" x="${x + barW/2}" y="${y - 5}" text-anchor="middle" font-size="10" fill="#425066" font-weight="600" ${clickable ? 'style="cursor:pointer;"' : ''}>${d.count}</text>`;
+      bars += `<text data-date-key="${dateKey}" x="${x + barW/2}" y="${y - 5}" text-anchor="middle" font-size="10" fill="#425066" font-weight="600" ${clickable ? 'style="cursor:pointer;"' : ''}>${fmtInt(d.count)}</text>`;
     }
     labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 16}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${DAY_ABBR[d.date.getDay()]}</text>`;
     labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 30}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${d.date.getDate()}</text>`;
@@ -1109,7 +1098,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
   container.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:flex-end; padding:14px 20px 4px;">
       <div style="font-size:11.5px; font-weight:700; color:var(--ink); text-align:right;">
-        Rata-rata Weekday: ${Math.round(daily.avgWeekday)} &nbsp;|&nbsp; Rata-rata Weekend: ${Math.round(daily.avgWeekend)}
+        Rata-rata Weekday: ${fmtInt(Math.round(daily.avgWeekday))} &nbsp;|&nbsp; Rata-rata Weekend: ${fmtInt(Math.round(daily.avgWeekend))}
       </div>
     </div>
     <div style="padding:4px 20px 4px; overflow-x:auto;">${svg}</div>
@@ -1127,9 +1116,9 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
           fadeInEl(dd);
           return;
         }
-        dd.innerHTML = `<div style="font-weight:700; color:var(--ink); margin-bottom:6px;">Top Kategori — ${key} (${rows.length} interaksi)</div>` +
+        dd.innerHTML = `<div style="font-weight:700; color:var(--ink); margin-bottom:6px;">Top Kategori - ${key} (${fmtInt(rows.length)} interaksi)</div>` +
           '<table style="width:100%; max-width:520px;"><tbody>' +
-          top.map((c,i) => `<tr><td style="padding:3px 8px 3px 0; font-family:var(--sans);">${i+1}. ${c.label}</td><td class="num" style="padding:3px 0; font-family:var(--mono); text-align:right;">${c.count}</td></tr>`).join('') +
+          top.map((c,i) => `<tr><td style="padding:3px 8px 3px 0; font-family:var(--sans);">${i+1}. ${c.label}</td><td class="num" style="padding:3px 0; font-family:var(--mono); text-align:right;">${fmtInt(c.count)}</td></tr>`).join('') +
           '</tbody></table>';
         fadeInEl(dd);
       });
@@ -1139,7 +1128,13 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
 
 function fmtNum(n, dec){
   if (n === null || n === undefined || isNaN(n)) return '-';
+  // Bilangan bulat: ribuan pakai titik (1.334). Desimal tetap format lama (titik desimal, tanpa pemisah ribuan).
+  if (!dec) return n.toLocaleString('id-ID', { maximumFractionDigits: 0 });
   return n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false });
+}
+function fmtInt(n){
+  if (n === null || n === undefined || isNaN(n)) return '-';
+  return Number(n).toLocaleString('id-ID', { maximumFractionDigits: 0 });
 }
 function growthCell(curr, prev){
   if (prev === null || prev === undefined || prev === 0 || isNaN(prev)) return { text: '-', cls: 'growth-flat' };
@@ -1335,7 +1330,7 @@ function render(){
     }
     if (currTicketStats){
       // N-FCR% for Voice is escalated tickets over Call Offered (from the CDR file),
-      // not over ticket-file volume — the two counts aren't the same population.
+      // not over ticket-file volume - the two counts aren't the same population.
       const currPct = cStats ? (currTicketStats.escalated / cStats.offered) * 100 : null;
       const prevPct = (pStats && prevTicketStats) ? (prevTicketStats.escalated / pStats.offered) * 100 : null;
       addRow('N-FCR', currTicketStats.escalated, prevTicketStats ? prevTicketStats.escalated : null, 0, 'rel');
@@ -1346,7 +1341,7 @@ function render(){
       addRow(CHANNEL_VOL_LABEL[chan], currTicketStats.volume, prevTicketStats ? prevTicketStats.volume : null, 0, 'rel');
     }
     if (chan === 'manual'){
-      addManualRow('Response Time (menit)', 'gak ada bubble log utk Manual — isi manual dari Report', 'rt');
+      addManualRow('Response Time (menit)', 'gak ada bubble log utk Manual - isi manual dari Report', 'rt');
     } else {
       const cRT = avgResponseTimeForMonth(curr.detail, chan, curr.ticket.periodYear, curr.ticket.periodMonth);
       const pRT = prev.detail && prev.ticket ? avgResponseTimeForMonth(prev.detail, chan, prev.ticket.periodYear, prev.ticket.periodMonth) : undefined;
@@ -1450,11 +1445,11 @@ function render(){
     const htSampleBody = document.getElementById('ht-sample-body');
     if (ht){
       htBody.innerHTML = `
-        <tr><td class="label">Populasi Handling time &lt; 3 Min</td><td class="num">${ht.under3}</td><td class="num">${ht.under3Pct.toFixed(2)}%</td></tr>
-        <tr><td class="label">Populasi Handling time &gt; 3 Min</td><td class="num">${ht.over3}</td><td class="num">${ht.over3Pct.toFixed(2)}%</td></tr>
-        <tr><td class="label">Populasi Handling time &lt; 10 Min</td><td class="num">${ht.under10}</td><td class="num">${ht.under10Pct.toFixed(2)}%</td></tr>
-        <tr><td class="label">Populasi Handling time &gt; 10 Min</td><td class="num">${ht.over10}</td><td class="num">${ht.over10Pct.toFixed(2)}%</td></tr>`;
-      htNarr.innerHTML = `Dari total <b>${fmtNum(ht.total,0)} interaksi</b> pada channel <b>${label}</b>, sebanyak <b>${ht.over3} interaksi (${ht.over3Pct.toFixed(2)}%)</b> memiliki handling time lebih dari 3 menit, sementara <b>${ht.under10} interaksi (${ht.under10Pct.toFixed(2)}%)</b> terselesaikan dalam waktu kurang dari 10 menit.`;
+        <tr><td class="label">Populasi Handling time &lt; 3 Min</td><td class="num">${fmtInt(ht.under3)}</td><td class="num">${ht.under3Pct.toFixed(2)}%</td></tr>
+        <tr><td class="label">Populasi Handling time &gt; 3 Min</td><td class="num">${fmtInt(ht.over3)}</td><td class="num">${ht.over3Pct.toFixed(2)}%</td></tr>
+        <tr><td class="label">Populasi Handling time &lt; 10 Min</td><td class="num">${fmtInt(ht.under10)}</td><td class="num">${ht.under10Pct.toFixed(2)}%</td></tr>
+        <tr><td class="label">Populasi Handling time &gt; 10 Min</td><td class="num">${fmtInt(ht.over10)}</td><td class="num">${ht.over10Pct.toFixed(2)}%</td></tr>`;
+      htNarr.innerHTML = `Dari total <b>${fmtNum(ht.total,0)} interaksi</b> pada channel <b>${label}</b>, sebanyak <b>${fmtInt(ht.over3)} interaksi (${ht.over3Pct.toFixed(2)}%)</b> memiliki handling time lebih dari 3 menit, sementara <b>${fmtInt(ht.under10)} interaksi (${ht.under10Pct.toFixed(2)}%)</b> terselesaikan dalam waktu kurang dari 10 menit.`;
       const fmtDateShort = d => d.getDate() + '-' + MONTH_ABBR[d.getMonth()];
       const fmtTimeShort = d => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
       const rowHtml = (r, tag) => `
@@ -1476,7 +1471,7 @@ function render(){
   document.getElementById('btn-capture-mode').disabled = false;
 }
 
-// ---- Per-table "Copy Table" — copies as a real HTML table (with inline
+// ---- Per-table "Copy Table" - copies as a real HTML table (with inline
 // styles) plus a plain-text fallback, so pasting into PPT/Word/Excel lands
 // as an actual table rather than a text blob. ----
 function buildInlineStyledTable(tableEl){
@@ -1490,7 +1485,7 @@ function buildInlineStyledTable(tableEl){
   clone.style.fontSize = '9pt';
 
   // Clean/modern look for the pasted table (matching the web app's own
-  // style) at a compact 9pt size — light header band, white body rows,
+  // style) at a compact 9pt size - light header band, white body rows,
   // thin gray borders, no green/red on the Growth column (kept plain).
   const HEADER_BG = '#F6F8FA', HEADER_FG = '#425066';
   const BODY_BG = '#FFFFFF', INK = '#1B2430';
@@ -1518,7 +1513,7 @@ function buildInlineStyledTable(tableEl){
         c.style.textTransform = 'uppercase';
       } else {
         c.style.textAlign = cs ? cs.textAlign : (cIdx === 0 ? 'left' : 'right');
-        // Growth column intentionally left plain — no green/red coloring.
+        // Growth column intentionally left plain - no green/red coloring.
         c.style.color = INK;
         c.style.fontWeight = origCell && origCell.classList.contains('label') ? '600' : 'normal';
       }
@@ -1547,7 +1542,7 @@ function copyTableRich(tableEl, btnEl){
   // Primary: build a hidden, selectable copy of the table and use
   // execCommand('copy'). This works even opened as a local file:// page,
   // where the async Clipboard API is often blocked or requires a secure
-  // context — execCommand only needs a plain user click, which this is.
+  // context - execCommand only needs a plain user click, which this is.
   const container = document.createElement('div');
   container.setAttribute('contenteditable', 'true');
   container.style.position = 'fixed';
@@ -1609,7 +1604,7 @@ function copyCardAsImage(cardEl, btnEl){
     URL.revokeObjectURL(url);
   }
   if (typeof html2canvas !== 'function'){ showFeedback(false, 'html2canvas gagal load'); return; }
-  // Hide the whole toolbar row (not just the button) during capture — hiding
+  // Hide the whole toolbar row (not just the button) during capture - hiding
   // only the button left an empty strip where the toolbar's padding/border
   // used to be.
   const toolbarEl = btnEl.closest('.card-toolbar');
@@ -1628,7 +1623,7 @@ function copyCardAsImage(cardEl, btnEl){
           showFeedback(true, 'Didownload ✓');
         }
       } catch (err) {
-        // Async Clipboard image write often needs a secure/https context —
+        // Async Clipboard image write often needs a secure/https context -
         // fall back to a direct PNG download so the image is still usable.
         try { downloadBlob(blob); showFeedback(true, 'Didownload ✓'); }
         catch (e2) { showFeedback(false); }
@@ -1674,7 +1669,7 @@ function enhanceCopyButtons(rootId){
 function copyAllTables(){
   const sel = document.getElementById('channel-select');
   const label = CHANNEL_LABEL[sel.value] || sel.value;
-  let text = `Parameter Indicator — ${label}\n`;
+  let text = `Parameter Indicator - ${label}\n`;
   document.querySelectorAll('#pi-body tr').forEach(tr => {
     const cells = [...tr.children].map(td => {
       const input = td.querySelector('input');
@@ -1683,7 +1678,7 @@ function copyAllTables(){
     });
     text += cells.join('\t') + '\n';
   });
-  text += `\nKategori Produk — ${label}\n`;
+  text += `\nKategori Produk - ${label}\n`;
   document.querySelectorAll('#kp-body tr').forEach(tr => {
     const cells = [...tr.children].map(td => td.textContent.trim());
     text += cells.join('\t') + '\n';
@@ -1775,7 +1770,7 @@ async function uploadChunks(period_id, kind, items){
     }
   }
 }
-// bundle: { ticket, detail, voice } — the same shape as curr/prev in this app.
+// bundle: { ticket, detail, voice } - the same shape as curr/prev in this app.
 // detail = gapsByChannel object (or null), voice = array of call records (or null).
 async function apiSavePeriod(bundle){
   const ticketData = bundle.ticket;
@@ -1943,7 +1938,7 @@ function updatePeriodNote(){
   let msg = rows.toLocaleString('id-ID') + ' baris tiket pada ' + label + '.';
   if (det && (det.year !== c.year || det.month !== c.month)) msg += ' Bulan yang terdeteksi dari file: ' + PERIOD_MONTHS[det.month] + ' ' + det.year + '.';
   const exists = dbPeriods.some(p => p.year === c.year && p.month === c.month);
-  if (exists) msg += ' ⚠ ' + label + ' sudah ada di database — menyimpan akan menimpa seluruh data bulan itu.';
+  if (exists) msg += ' ⚠ ' + label + ' sudah ada di database - menyimpan akan menimpa seluruh data bulan itu.';
   if (!rows) msg += ' Tidak ada baris tiket di periode ini, ganti bulan/tahun.';
   note.textContent = msg;
   note.style.color = (exists || !rows) ? 'var(--red)' : 'var(--slate-soft)';
@@ -2009,7 +2004,7 @@ async function refreshPeriodsList(){
     }
     const optHtml = periods.map(p => `<option value="${p.year}-${p.month}">${p.label} (${p.row_count} baris)</option>`).join('');
     selA.innerHTML = optHtml;
-    selB.innerHTML = optHtml + '<option value="none">— tanpa pembanding —</option>';
+    selB.innerHTML = optHtml + '<option value="none">- tanpa pembanding -</option>';
     selB.selectedIndex = periods.length > 1 ? 1 : periods.length;
     updatePeriodNote();
   } catch (err) {
@@ -2076,7 +2071,7 @@ function refreshFilterValueOptions(){
   const type = document.getElementById('filter-type-select').value;
   const valSel = document.getElementById('filter-value-select');
   const dateSel = document.getElementById('filter-date-select');
-  if (!curr.ticket){ valSel.innerHTML = '<option>—</option>'; return; }
+  if (!curr.ticket){ valSel.innerHTML = '<option>-</option>'; return; }
   const rows = aggregateAllChannels(curr.ticket);
   let values = [];
   if (type === 'produk') values = ['E-Meterai', 'Digital Sign', 'Lain-lain'];
@@ -2107,7 +2102,7 @@ function renderFilterResult(){
   }
   const top = topCategoriesFor(scoped, 10);
   if (!top.length){ body.innerHTML = '<tr><td colspan="3" class="label">Tidak ada data.</td></tr>'; return; }
-  body.innerHTML = top.map((c,i) => `<tr><td class="label">${i+1}</td><td>${c.label}</td><td class="num">${c.count}</td></tr>`).join('');
+  body.innerHTML = top.map((c,i) => `<tr><td class="label">${i+1}</td><td>${c.label}</td><td class="num">${fmtInt(c.count)}</td></tr>`).join('');
   fadeInEl(body);
 }
 document.getElementById('filter-type-select').addEventListener('change', refreshFilterValueOptions);
@@ -2116,11 +2111,6 @@ document.getElementById('filter-date-select').addEventListener('change', renderF
 
 // ============ POPULASI HANDLING TIME & ESCALATION TIME ============
 function refreshPopChannelOptions(){
-  const sel = document.getElementById('pop-channel-select');
-  if (!curr.ticket) return;
-  const available = ['email','whatsapp','voice'].filter(c => curr.ticket.byChannel[c] && curr.ticket.byChannel[c].length);
-  if (!available.length){ sel.innerHTML = '<option>Tidak ada data</option>'; return; }
-  sel.innerHTML = available.map(c => `<option value="${c}">${CHANNEL_LABEL[c]}</option>`).join('');
   renderPopulationTimes();
 }
 function popFmtDate(d){
@@ -2149,17 +2139,17 @@ function popItems(rows, startField, endField){
 }
 function popTopCats(items, n){
   const counts = {};
-  items.forEach(x => { const k = x.r.category || '(tanpa kategori)'; counts[k] = (counts[k] || 0) + 1; });
+  items.forEach(x => { const k = (x.r.detailSubCategory || '').toString().trim() || x.r.category || '(tanpa detail sub category)'; counts[k] = (counts[k] || 0) + 1; });
   return Object.keys(counts).map(k => ({ label: k, count: counts[k] }))
     .sort((a,b) => b.count - a.count).slice(0, n);
 }
 function popCatText(top, total){
   if (!top.length) return '-';
-  return top.map(c => `${popEsc(c.label)} (${c.count}, ${(c.count/total*100).toFixed(1)}%)`).join(', ');
+  return top.map(c => `${popEsc(c.label)} (${fmtInt(c.count)}, ${(c.count/total*100).toFixed(1)}%)`).join(', ');
 }
 function popBuildCard(chan, metricLabel, startField, endField, T){
   const items = popItems(curr.ticket.byChannel[chan], startField, endField);
-  const title = `${metricLabel} — Batas ${T} Menit <span style="font-weight:400;color:var(--slate-soft);font-size:12px;">${CHANNEL_LABEL[chan] || chan}</span>`;
+  const title = `${metricLabel} - Batas ${T} Menit <span style="font-weight:400;color:var(--slate-soft);font-size:12px;">${CHANNEL_LABEL[chan] || chan}</span>`;
   if (!items.length){
     return `<div class="card" style="max-width:1100px;"><h2>${title}</h2><div style="padding:16px 20px; font-size:13px; color:var(--slate-soft);">Data tanggal untuk ${metricLabel} tidak tersedia pada channel ini.</div></div>`;
   }
@@ -2169,9 +2159,9 @@ function popBuildCard(chan, metricLabel, startField, endField, T){
   const pct = n => (n / total * 100).toFixed(2) + '%';
   const countsTbl = `
     <table><thead><tr><th>Populasi ${metricLabel}</th><th class="num">Count</th><th class="num">%</th></tr></thead><tbody>
-      <tr><td class="label">&lt; ${T} Menit</td><td class="num">${lo.length}</td><td class="num">${pct(lo.length)}</td></tr>
-      <tr><td class="label">&ge; ${T} Menit</td><td class="num">${hi.length}</td><td class="num">${pct(hi.length)}</td></tr>
-      <tr><td class="label" style="font-weight:700;">Total Populasi</td><td class="num" style="font-weight:700;">${total}</td><td class="num"></td></tr>
+      <tr><td class="label">&lt; ${T} Menit</td><td class="num">${fmtInt(lo.length)}</td><td class="num">${pct(lo.length)}</td></tr>
+      <tr><td class="label">&ge; ${T} Menit</td><td class="num">${fmtInt(hi.length)}</td><td class="num">${pct(hi.length)}</td></tr>
+      <tr><td class="label" style="font-weight:700;">Total Populasi</td><td class="num" style="font-weight:700;">${fmtInt(total)}</td><td class="num"></td></tr>
     </tbody></table>`;
 
   // Sample tercepat & terlama di tiap kelompok
@@ -2181,7 +2171,7 @@ function popBuildCard(chan, metricLabel, startField, endField, T){
     if (!group.length) return '';
     let fast = group[0], slow = group[0];
     group.forEach(x => { if (x.v < fast.v) fast = x; if (x.v > slow.v) slow = x; });
-    return sampleRow(`${label} — Tercepat`, fast) + sampleRow(`${label} — Terlama`, slow);
+    return sampleRow(`${label} - Tercepat`, fast) + sampleRow(`${label} - Terlama`, slow);
   };
   const sampleTbl = `
     <table><thead><tr><th>Sample</th><th>Date</th><th>Detail Sub Category</th><th>Channel</th><th class="num">${metricLabel}</th><th>${chan === 'email' ? 'Cust Email' : 'Cust Phone'}</th></tr></thead><tbody>
@@ -2190,35 +2180,41 @@ function popBuildCard(chan, metricLabel, startField, endField, T){
 
   // Insight: top 3 kategori per kelompok
   const topLo = popTopCats(lo, 3), topHi = popTopCats(hi, 3);
-  const insightRow = (label, top, g) => `<tr><td class="label">${label}</td><td class="num">${g.length}</td><td>${popCatText(top, g.length)}</td></tr>`;
+  const insightRow = (label, top, g) => `<tr><td class="label">${label}</td><td class="num">${fmtInt(g.length)}</td><td>${popCatText(top, g.length)}</td></tr>`;
   const insightTbl = `
-    <table><thead><tr><th>Kelompok</th><th class="num">Count</th><th>Top 3 Kategori (jumlah, % dalam kelompok)</th></tr></thead><tbody>
+    <table><thead><tr><th>Kelompok</th><th class="num">Count</th><th>Top 3 Detail Sub Category (jumlah, % dalam kelompok)</th></tr></thead><tbody>
       ${insightRow(`&lt; ${T} Menit`, topLo, lo)}${insightRow(`&ge; ${T} Menit`, topHi, hi)}
     </tbody></table>`;
   const narr = [];
-  if (topLo.length) narr.push(`Pada interaksi dengan ${metricLabel} <b>&lt; ${T} menit</b>, kategori terbanyak adalah <b>${popEsc(topLo[0].label)}</b> (${topLo[0].count} dari ${lo.length} interaksi, ${(topLo[0].count/lo.length*100).toFixed(1)}%).`);
-  if (topHi.length) narr.push(`Pada ${metricLabel} <b>&ge; ${T} menit</b>, kategori terbanyak adalah <b>${popEsc(topHi[0].label)}</b> (${topHi[0].count} dari ${hi.length} interaksi, ${(topHi[0].count/hi.length*100).toFixed(1)}%).`);
+  if (topLo.length) narr.push(`Pada interaksi dengan ${metricLabel} <b>&lt; ${T} menit</b>, Detail Sub Category terbanyak adalah <b>${popEsc(topLo[0].label)}</b> (${fmtInt(topLo[0].count)} dari ${fmtInt(lo.length)} interaksi, ${(topLo[0].count/lo.length*100).toFixed(1)}%).`);
+  if (topHi.length) narr.push(`Pada ${metricLabel} <b>&ge; ${T} menit</b>, Detail Sub Category terbanyak adalah <b>${popEsc(topHi[0].label)}</b> (${fmtInt(topHi[0].count)} dari ${fmtInt(hi.length)} interaksi, ${(topHi[0].count/hi.length*100).toFixed(1)}%).`);
 
   const sub = t => `<div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); margin:16px 0 6px;">${t}</div>`;
   return `<div class="card" style="max-width:1100px;"><h2>${title}</h2>
     <div style="padding:6px 20px 20px;">
       ${sub('Populasi')}${countsTbl}
       ${sub('Sample Interaksi Tercepat &amp; Terlama')}${sampleTbl}
-      ${sub('Insight Top Kategori')}${insightTbl}
+      ${sub('Insight Top Detail Sub Category')}${insightTbl}
       <p style="margin:10px 0 0; font-size:13px; line-height:1.55;">${narr.join(' ')}</p>
     </div></div>`;
 }
 function renderPopulationTimes(){
-  const chan = document.getElementById('pop-channel-select').value;
   const host = document.getElementById('pop-sections');
-  if (!curr.ticket || !chan || !curr.ticket.byChannel[chan]){ host.innerHTML = ''; return; }
+  if (!host) return;
+  if (!curr.ticket){ host.innerHTML = ''; return; }
+  const view = document.getElementById('view-select').value;
+  const chan = document.getElementById('channel-select').value;
+  const note = msg => `<div class="card" style="max-width:1100px;"><h2>Populasi Handling Time &amp; Escalation Time</h2><div style="padding:16px 20px; font-size:13px; color:var(--slate-soft);">${msg}</div></div>`;
+  if (view === 'rollup'){ host.innerHTML = note('Pilih tampilan "Per Channel" di atas untuk melihat populasi per channel.'); return; }
+  if (!chan || !curr.ticket.byChannel[chan]){ host.innerHTML = ''; return; }
   host.innerHTML =
-    popBuildCard(chan, 'Handling Time',    'dateStart', 'dateEnd',  3) +
-    popBuildCard(chan, 'Handling Time',    'dateStart', 'dateEnd', 10) +
-    popBuildCard(chan, 'Escalation Time',  'dateStart', 'dateOpen', 3) +
-    popBuildCard(chan, 'Escalation Time',  'dateStart', 'dateOpen',10);
+    popBuildCard(chan, 'Handling Time',   'dateStart', 'dateEnd',   3) +
+    popBuildCard(chan, 'Handling Time',   'dateStart', 'dateEnd',  10) +
+    popBuildCard(chan, 'Escalation Time', 'dateStart', 'dateOpen',  3) +
+    popBuildCard(chan, 'Escalation Time', 'dateStart', 'dateOpen', 10);
 }
-document.getElementById('pop-channel-select').addEventListener('change', renderPopulationTimes);
+document.getElementById('channel-select').addEventListener('change', renderPopulationTimes);
+document.getElementById('view-select').addEventListener('change', renderPopulationTimes);
 
 function refreshExtraAnalysis(){
   const panel = document.getElementById('extra-analysis');

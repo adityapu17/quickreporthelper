@@ -110,7 +110,7 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Login gagal');
-        window.location.href = '/';
+        window.location.href = '/summary';
       } catch (ex) {
         err.textContent = ex.message;
         const boxEl = document.getElementById('auth-form'); boxEl.classList.remove('shake'); void boxEl.offsetWidth; boxEl.classList.add('shake');

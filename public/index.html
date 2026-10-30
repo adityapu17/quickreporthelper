@@ -445,6 +445,12 @@ function colIdx(headers, name, required){
     const lower = name.toLowerCase();
     i = headers.findIndex(h => (h || '').toString().toLowerCase() === lower);
   }
+  if (i === -1){
+    // Fallback terakhir: abaikan spasi/underscore/simbol dan awalan "ticket", mis. customer_category = ticket_Customer_Category.
+    const norm = x => (x || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^ticket/, '');
+    const n = norm(name);
+    if (n) i = headers.findIndex(h => norm(h) === n);
+  }
   if (i === -1 && required) throw new Error('Kolom "' + name + '" tidak ditemukan.');
   return i;
 }
@@ -667,8 +673,19 @@ function computeRollupCategoryStats(rows){
   rows.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
   return { total: rows.length, catCounts };
 }
+// Nilai kolom bisa berbentuk 'Pemungut', 'Pemungut', "Pemungut" (kutip lurus/melengkung), ada spasi tak terlihat, dll.
+function normCustCat(v){
+  return (v == null ? '' : v).toString()
+    .replace(/[\u0027\u2018\u2019\u201A\u201B\u0060\u00B4\u0022\u201C\u201D]/g, '')
+    .replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function isPemungut(v){
+  const n = normCustCat(v);
+  return /\bpemungut\b/.test(n) && !/\b(non|bukan|bkn|tidak)\b/.test(n);
+}
 function computePemungutStats(rows, denominator){
-  const count = rows.filter(r => (r.customerCategory || '').toString().trim().toLowerCase() === 'pemungut').length;
+  const count = rows.filter(r => isPemungut(r.customerCategory)).length;
   const denom = denominator !== undefined && denominator !== null ? denominator : rows.length;
   return { count, pct: denom ? (count / denom) * 100 : 0 };
 }
@@ -746,7 +763,9 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
   }
   const days = series.days;
   // Digital Sign = biru biasa, E-Meterai = kuning agak oranye.
-  const emColor = '#f0a52d', dsColor = '#3568c9';
+  const PP = window.PRODUCT_PALETTE || {};
+  const emColor = PP.emeterai || '#f3b757', dsColor = PP.digitalsign || '#5d86d4';
+  const emText = PP.emeteraiText || '#c98a1d', dsText = PP.digitalsignText || '#3f6bc4';
   const maxVal = Math.max(...days.map(d => d.em + d.ds), 1);
   const n = days.length;
   const barW = Math.max(14, Math.min(28, Math.floor(760 / n) - 4));
@@ -779,12 +798,12 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
     const MIN_INSIDE_H = 12;
     const overflow = [];
     if (d.em > 0){
-      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${fmtInt(d.em)}</text>`;
-      else overflow.push({ v: d.em, c: emColor });
+      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#1b2430" font-weight="600" pointer-events="none">${fmtInt(d.em)}</text>`;
+      else overflow.push({ v: d.em, c: emText });
     }
     if (d.ds > 0){
       if (dsH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(dsY + dsH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${fmtInt(d.ds)}</text>`;
-      else overflow.push({ v: d.ds, c: dsColor });
+      else overflow.push({ v: d.ds, c: dsText });
     }
     overflow.forEach((o, k) => {
       bars += `<text x="${x + barW/2}" y="${(dsY - 4 - k*12).toFixed(1)}" text-anchor="middle" font-size="10" fill="${o.c}" font-weight="700" pointer-events="none">${fmtInt(o.v)}</text>`;
@@ -1214,7 +1233,20 @@ function renderRollup(){
   })();
 
   const pem = computePemungutStats(currRows, currStats.catCounts['E-Meterai']);
-  document.getElementById('ru-pemungut-container').innerHTML = `<b>${fmtNum(pem.count,0)} interaksi</b> &nbsp;(${pem.pct.toFixed(2)}%)`;
+  const pemBox = document.getElementById('ru-pemungut-container');
+  const catVals = {};
+  currRows.forEach(r => { const n = normCustCat(r.customerCategory); if (n) catVals[n] = (catVals[n] || 0) + 1; });
+  const catKeys = Object.keys(catVals);
+  if (!catKeys.length){
+    pemBox.innerHTML = `<b>${fmtNum(pem.count,0)} interaksi</b> &nbsp;(${pem.pct.toFixed(2)}%)<div style="margin-top:8px; font-size:12px; color:var(--red);">Kolom customer category kosong atau tidak terbaca di data ticket. Cek nama kolom di Setting (Konfigurasi Kolom). Kalau data dimuat dari database, upload ulang file ticket lalu simpan lagi.</div>`;
+  } else {
+    let extra = '';
+    if (!pem.count){
+      const top = catKeys.sort((a,b) => catVals[b] - catVals[a]).slice(0, 5).map(k => `${popEsc(k)} (${fmtInt(catVals[k])})`).join(', ');
+      extra = `<div style="margin-top:8px; font-size:12px; color:var(--slate-soft);">Tidak ada nilai "Pemungut". Nilai yang terbaca: ${top}</div>`;
+    }
+    pemBox.innerHTML = `<b>${fmtNum(pem.count,0)} interaksi</b> &nbsp;(${pem.pct.toFixed(2)}%)${extra}`;
+  }
 
   const dailySeries = computeDailyStackedEmDs(currRows, curr.ticket.periodYear, curr.ticket.periodMonth);
   const stackedRowsByDayProduct = groupRowsByDateProduct(currRows, curr.ticket.periodYear, curr.ticket.periodMonth);

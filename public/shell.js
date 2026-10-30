@@ -243,3 +243,6 @@
 // Palet warna channel (dipakai semua diagram): Voice biru, Email orange,
 // WhatsApp Business hijau, WhatsApp Group (Manual) abu-abu.
 window.CHANNEL_PALETTE = { voice: '#3568c9', email: '#d4680f', whatsapp: '#43b86e', manual: '#7f8a9a' };
+// Palet produk (dipakai semua grafik/kartu): E-Meterai kuning, Digital Sign (Perisai) biru, sedikit lebih muda.
+// *Text = versi lebih gelap untuk teks di atas latar putih.
+window.PRODUCT_PALETTE = { emeterai: '#f3b757', digitalsign: '#5d86d4', emeteraiText: '#c98a1d', digitalsignText: '#3f6bc4' };

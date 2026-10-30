@@ -299,7 +299,7 @@ index 0000000..5284bfd
 +  scan();
 +})();
 diff --git a/public/daily.html b/public/daily.html
-index 1353b3f..8fd35e2 100644
+index 1353b3f..761b5d1 100644
 --- a/public/daily.html
 +++ b/public/daily.html
 @@ -9,6 +9,7 @@
@@ -310,9 +310,21 @@ index 1353b3f..8fd35e2 100644
  <script src="/daily-lib.js"></script>
  <link rel="preconnect" href="https://fonts.googleapis.com">
  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
-@@ -432,7 +433,7 @@ function chartOpts(n, forExport, o){
+@@ -376,7 +377,7 @@ const CH_PAL = window.CHANNEL_PALETTE || { voice:'#3568c9', email:'#d4680f', wha
+ const DAILY_COLORS = { voice:CH_PAL.voice, email:CH_PAL.email, whatsapp:CH_PAL.whatsapp };
+ const RT_COLORS = { email:CH_PAL.email, wa:CH_PAL.whatsapp };
+ // Product chart colors: Digital Sign = regular blue, E-Meterai = yellowish-orange
+-const PRODUCT_COLORS = { eMeterai:'#f0a52d', digitalSign:'#3568c9' };
++const PRODUCT_COLORS = { eMeterai:(window.PRODUCT_PALETTE||{}).emeterai || '#f3b757', digitalSign:(window.PRODUCT_PALETTE||{}).digitalsign || '#5d86d4' };
+ let chartDaily = null, chartRt = null, chartProduct = null;
+ const EXPORT_PER_DAY = 46, EXPORT_MIN_WIDTH = 900, EXPORT_HEIGHT = 560;
+ 
+@@ -430,9 +431,9 @@ function chartOpts(n, forExport, o){
+       legend:{ position:'bottom', labels:{ color:'#425066', usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:18, font:{ size: forExport?13:12 } } },
+       tooltip:{ enabled: !forExport, backgroundColor:'#1b2430', titleColor:'#fff', bodyColor:'#dbe2e9', padding:10 },
        datalabels: o.datalabels ? {
-         color:(ctx) => ctx.dataset.label === 'Voice' ? '#1a2620' : '#fff',
+-        color:(ctx) => ctx.dataset.label === 'Voice' ? '#1a2620' : '#fff',
++        color:(ctx) => (ctx.dataset.label === 'Voice' || ctx.dataset.label === 'E-Meterai') ? '#1a2620' : '#fff',
          font:{ size: forExport?11:10, weight:'600' },
 -        formatter:(v) => v > 0 ? v : '',
 +        formatter:(v) => v > 0 ? Number(v).toLocaleString('id-ID') : '',
@@ -320,7 +332,7 @@ index 1353b3f..8fd35e2 100644
        } : { display:false },
      },
 diff --git a/public/index.html b/public/index.html
-index 850d95b..c809f47 100644
+index 850d95b..68b2243 100644
 --- a/public/index.html
 +++ b/public/index.html
 @@ -3,7 +3,7 @@
@@ -480,7 +492,20 @@ index 850d95b..c809f47 100644
    // like "'Pemungut" matches cleanly instead of silently failing comparisons.
    const dataRows = rows.slice(1).map(row => row.map(cell =>
      typeof cell === 'string' && cell.charAt(0) === "'" ? cell.slice(1) : cell
-@@ -515,7 +495,7 @@ function parseTicketFile(buf, forced){
+@@ -465,6 +445,12 @@ function colIdx(headers, name, required){
+     const lower = name.toLowerCase();
+     i = headers.findIndex(h => (h || '').toString().toLowerCase() === lower);
+   }
++  if (i === -1){
++    // Fallback terakhir: abaikan spasi/underscore/simbol dan awalan "ticket", mis. customer_category = ticket_Customer_Category.
++    const norm = x => (x || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^ticket/, '');
++    const n = norm(name);
++    if (n) i = headers.findIndex(h => norm(h) === n);
++  }
+   if (i === -1 && required) throw new Error('Kolom "' + name + '" tidak ditemukan.');
+   return i;
+ }
+@@ -515,7 +501,7 @@ function parseTicketFile(buf, forced){
      if (!chan) return;
      if (!byChannel[chan]) byChannel[chan] = [];
      // Manual/Group tickets don't carry a reliable date_start_interaction
@@ -489,7 +514,7 @@ index 850d95b..c809f47 100644
      const dateField = chan === 'manual' ? idx.date_open : idx.date_start;
      const rawObj = {};
      headers.forEach((h, hi) => {
-@@ -557,7 +537,7 @@ function parseTicketFile(buf, forced){
+@@ -557,7 +543,7 @@ function parseTicketFile(buf, forced){
      periodLabel = MONTHS[useP.month] + ' ' + useP.year;
      periodYear = useP.year; periodMonth = useP.month;
    }
@@ -498,7 +523,28 @@ index 850d95b..c809f47 100644
    // drops spillover records (e.g. a Manual ticket opened just after month-end).
    if (periodYear !== null){
      Object.keys(byChannel).forEach(chan => {
-@@ -702,7 +682,7 @@ function computeCategoryChannelBreakdown(rows, categoryName){
+@@ -687,8 +673,19 @@ function computeRollupCategoryStats(rows){
+   rows.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
+   return { total: rows.length, catCounts };
+ }
++// Nilai kolom bisa berbentuk 'Pemungut', 'Pemungut', "Pemungut" (kutip lurus/melengkung), ada spasi tak terlihat, dll.
++function normCustCat(v){
++  return (v == null ? '' : v).toString()
++    .replace(/[\u0027\u2018\u2019\u201A\u201B\u0060\u00B4\u0022\u201C\u201D]/g, '')
++    .replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ')
++    .replace(/\s+/g, ' ').trim().toLowerCase();
++}
++function isPemungut(v){
++  const n = normCustCat(v);
++  return /\bpemungut\b/.test(n) && !/\b(non|bukan|bkn|tidak)\b/.test(n);
++}
+ function computePemungutStats(rows, denominator){
+-  const count = rows.filter(r => (r.customerCategory || '').toString().trim().toLowerCase() === 'pemungut').length;
++  const count = rows.filter(r => isPemungut(r.customerCategory)).length;
+   const denom = denominator !== undefined && denominator !== null ? denominator : rows.length;
+   return { count, pct: denom ? (count / denom) * 100 : 0 };
+ }
+@@ -702,7 +699,7 @@ function computeCategoryChannelBreakdown(rows, categoryName){
    return { total, breakdown: result };
  }
  // Assumption (flagged for the user to confirm): escalation rate per mainCategory,
@@ -507,18 +553,31 @@ index 850d95b..c809f47 100644
  // escalated tickets in that mainCategory / all tickets in that mainCategory.
  function computeEscalationByMainCategory(rows){
    const scoped = rows.filter(r => r.category === 'E-Meterai' || r.category === 'Digital Sign');
-@@ -799,15 +779,15 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
+@@ -766,7 +763,9 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
+   }
+   const days = series.days;
+   // Digital Sign = biru biasa, E-Meterai = kuning agak oranye.
+-  const emColor = '#f0a52d', dsColor = '#3568c9';
++  const PP = window.PRODUCT_PALETTE || {};
++  const emColor = PP.emeterai || '#f3b757', dsColor = PP.digitalsign || '#5d86d4';
++  const emText = PP.emeteraiText || '#c98a1d', dsText = PP.digitalsignText || '#3f6bc4';
+   const maxVal = Math.max(...days.map(d => d.em + d.ds), 1);
+   const n = days.length;
+   const barW = Math.max(14, Math.min(28, Math.floor(760 / n) - 4));
+@@ -799,15 +798,15 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
      const MIN_INSIDE_H = 12;
      const overflow = [];
      if (d.em > 0){
 -      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${d.em}</text>`;
-+      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${fmtInt(d.em)}</text>`;
-       else overflow.push({ v: d.em, c: emColor });
+-      else overflow.push({ v: d.em, c: emColor });
++      if (emH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(emY + emH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#1b2430" font-weight="600" pointer-events="none">${fmtInt(d.em)}</text>`;
++      else overflow.push({ v: d.em, c: emText });
      }
      if (d.ds > 0){
 -      if (dsH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(dsY + dsH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${d.ds}</text>`;
+-      else overflow.push({ v: d.ds, c: dsColor });
 +      if (dsH >= MIN_INSIDE_H) bars += `<text x="${x + barW/2}" y="${(dsY + dsH/2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#fff" font-weight="600" pointer-events="none">${fmtInt(d.ds)}</text>`;
-       else overflow.push({ v: d.ds, c: dsColor });
++      else overflow.push({ v: d.ds, c: dsText });
      }
      overflow.forEach((o, k) => {
 -      bars += `<text x="${x + barW/2}" y="${(dsY - 4 - k*12).toFixed(1)}" text-anchor="middle" font-size="10" fill="${o.c}" font-weight="700" pointer-events="none">${o.v}</text>`;
@@ -526,7 +585,7 @@ index 850d95b..c809f47 100644
      });
      labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 16}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${DAY_ABBR[d.date.getDay()]}</text>`;
      labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 30}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${d.date.getDate()}</text>`;
-@@ -835,10 +815,10 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
+@@ -835,10 +834,10 @@ function renderStackedDailyChart(container, series, rowsByDayProduct){
          const rows = rowsByDayProduct[dateKey + '|' + product] || [];
          const top = topCategoriesFor(rows, 10);
          const dd = document.getElementById('stacked-drilldown');
@@ -540,7 +599,7 @@ index 850d95b..c809f47 100644
            '</tbody></table>';
          fadeInEl(dd);
        });
-@@ -1103,7 +1083,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
+@@ -1103,7 +1102,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
      const clickable = d.count > 0 && rowsByDay;
      bars += `<rect data-date-key="${dateKey}" x="${x}" y="${y}" width="${barW}" height="${Math.max(h, d.count>0?1:0)}" rx="3" fill="${barColor}" ${clickable ? 'style="cursor:pointer;"' : ''}></rect>`;
      if (d.count > 0){
@@ -549,7 +608,7 @@ index 850d95b..c809f47 100644
      }
      labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 16}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${DAY_ABBR[d.date.getDay()]}</text>`;
      labels += `<text x="${x + barW/2}" y="${chartH - padBottom + 30}" text-anchor="middle" font-size="9.5" fill="${labelColor}" font-weight="${isWeekend?700:400}">${d.date.getDate()}</text>`;
-@@ -1119,7 +1099,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
+@@ -1119,7 +1118,7 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
    container.innerHTML = `
      <div style="display:flex; align-items:center; justify-content:flex-end; padding:14px 20px 4px;">
        <div style="font-size:11.5px; font-weight:700; color:var(--ink); text-align:right;">
@@ -558,7 +617,7 @@ index 850d95b..c809f47 100644
        </div>
      </div>
      <div style="padding:4px 20px 4px; overflow-x:auto;">${svg}</div>
-@@ -1137,9 +1117,9 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
+@@ -1137,9 +1136,9 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
            fadeInEl(dd);
            return;
          }
@@ -570,7 +629,7 @@ index 850d95b..c809f47 100644
            '</tbody></table>';
          fadeInEl(dd);
        });
-@@ -1149,8 +1129,14 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
+@@ -1149,8 +1148,14 @@ function renderDailyChart(container, daily, channelLabel, color, rowsByDay){
  
  function fmtNum(n, dec){
    if (n === null || n === undefined || isNaN(n)) return '-';
@@ -585,7 +644,29 @@ index 850d95b..c809f47 100644
  function growthCell(curr, prev){
    if (prev === null || prev === undefined || prev === 0 || isNaN(prev)) return { text: '-', cls: 'growth-flat' };
    const g = ((curr - prev) / prev) * 100;
-@@ -1345,7 +1331,7 @@ function render(){
+@@ -1228,7 +1233,20 @@ function renderRollup(){
+   })();
+ 
+   const pem = computePemungutStats(currRows, currStats.catCounts['E-Meterai']);
+-  document.getElementById('ru-pemungut-container').innerHTML = `<b>${fmtNum(pem.count,0)} interaksi</b> &nbsp;(${pem.pct.toFixed(2)}%)`;
++  const pemBox = document.getElementById('ru-pemungut-container');
++  const catVals = {};
++  currRows.forEach(r => { const n = normCustCat(r.customerCategory); if (n) catVals[n] = (catVals[n] || 0) + 1; });
++  const catKeys = Object.keys(catVals);
++  if (!catKeys.length){
++    pemBox.innerHTML = `<b>${fmtNum(pem.count,0)} interaksi</b> &nbsp;(${pem.pct.toFixed(2)}%)<div style="margin-top:8px; font-size:12px; color:var(--red);">Kolom customer category kosong atau tidak terbaca di data ticket. Cek nama kolom di Setting (Konfigurasi Kolom). Kalau data dimuat dari database, upload ulang file ticket lalu simpan lagi.</div>`;
++  } else {
++    let extra = '';
++    if (!pem.count){
++      const top = catKeys.sort((a,b) => catVals[b] - catVals[a]).slice(0, 5).map(k => `${popEsc(k)} (${fmtInt(catVals[k])})`).join(', ');
++      extra = `<div style="margin-top:8px; font-size:12px; color:var(--slate-soft);">Tidak ada nilai "Pemungut". Nilai yang terbaca: ${top}</div>`;
++    }
++    pemBox.innerHTML = `<b>${fmtNum(pem.count,0)} interaksi</b> &nbsp;(${pem.pct.toFixed(2)}%)${extra}`;
++  }
+ 
+   const dailySeries = computeDailyStackedEmDs(currRows, curr.ticket.periodYear, curr.ticket.periodMonth);
+   const stackedRowsByDayProduct = groupRowsByDateProduct(currRows, curr.ticket.periodYear, curr.ticket.periodMonth);
+@@ -1345,7 +1363,7 @@ function render(){
      }
      if (currTicketStats){
        // N-FCR% for Voice is escalated tickets over Call Offered (from the CDR file),
@@ -594,7 +675,7 @@ index 850d95b..c809f47 100644
        const currPct = cStats ? (currTicketStats.escalated / cStats.offered) * 100 : null;
        const prevPct = (pStats && prevTicketStats) ? (prevTicketStats.escalated / pStats.offered) * 100 : null;
        addRow('N-FCR', currTicketStats.escalated, prevTicketStats ? prevTicketStats.escalated : null, 0, 'rel');
-@@ -1356,7 +1342,7 @@ function render(){
+@@ -1356,7 +1374,7 @@ function render(){
        addRow(CHANNEL_VOL_LABEL[chan], currTicketStats.volume, prevTicketStats ? prevTicketStats.volume : null, 0, 'rel');
      }
      if (chan === 'manual'){
@@ -603,7 +684,7 @@ index 850d95b..c809f47 100644
      } else {
        const cRT = avgResponseTimeForMonth(curr.detail, chan, curr.ticket.periodYear, curr.ticket.periodMonth);
        const pRT = prev.detail && prev.ticket ? avgResponseTimeForMonth(prev.detail, chan, prev.ticket.periodYear, prev.ticket.periodMonth) : undefined;
-@@ -1460,11 +1446,11 @@ function render(){
+@@ -1460,11 +1478,11 @@ function render(){
      const htSampleBody = document.getElementById('ht-sample-body');
      if (ht){
        htBody.innerHTML = `
@@ -620,7 +701,7 @@ index 850d95b..c809f47 100644
        const fmtDateShort = d => d.getDate() + '-' + MONTH_ABBR[d.getMonth()];
        const fmtTimeShort = d => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
        const rowHtml = (r, tag) => `
-@@ -1486,7 +1472,7 @@ function render(){
+@@ -1486,7 +1504,7 @@ function render(){
    document.getElementById('btn-capture-mode').disabled = false;
  }
  
@@ -629,7 +710,7 @@ index 850d95b..c809f47 100644
  // styles) plus a plain-text fallback, so pasting into PPT/Word/Excel lands
  // as an actual table rather than a text blob. ----
  function buildInlineStyledTable(tableEl){
-@@ -1500,7 +1486,7 @@ function buildInlineStyledTable(tableEl){
+@@ -1500,7 +1518,7 @@ function buildInlineStyledTable(tableEl){
    clone.style.fontSize = '9pt';
  
    // Clean/modern look for the pasted table (matching the web app's own
@@ -638,7 +719,7 @@ index 850d95b..c809f47 100644
    // thin gray borders, no green/red on the Growth column (kept plain).
    const HEADER_BG = '#F6F8FA', HEADER_FG = '#425066';
    const BODY_BG = '#FFFFFF', INK = '#1B2430';
-@@ -1528,7 +1514,7 @@ function buildInlineStyledTable(tableEl){
+@@ -1528,7 +1546,7 @@ function buildInlineStyledTable(tableEl){
          c.style.textTransform = 'uppercase';
        } else {
          c.style.textAlign = cs ? cs.textAlign : (cIdx === 0 ? 'left' : 'right');
@@ -647,7 +728,7 @@ index 850d95b..c809f47 100644
          c.style.color = INK;
          c.style.fontWeight = origCell && origCell.classList.contains('label') ? '600' : 'normal';
        }
-@@ -1557,7 +1543,7 @@ function copyTableRich(tableEl, btnEl){
+@@ -1557,7 +1575,7 @@ function copyTableRich(tableEl, btnEl){
    // Primary: build a hidden, selectable copy of the table and use
    // execCommand('copy'). This works even opened as a local file:// page,
    // where the async Clipboard API is often blocked or requires a secure
@@ -656,7 +737,7 @@ index 850d95b..c809f47 100644
    const container = document.createElement('div');
    container.setAttribute('contenteditable', 'true');
    container.style.position = 'fixed';
-@@ -1619,7 +1605,7 @@ function copyCardAsImage(cardEl, btnEl){
+@@ -1619,7 +1637,7 @@ function copyCardAsImage(cardEl, btnEl){
      URL.revokeObjectURL(url);
    }
    if (typeof html2canvas !== 'function'){ showFeedback(false, 'html2canvas gagal load'); return; }
@@ -665,7 +746,7 @@ index 850d95b..c809f47 100644
    // only the button left an empty strip where the toolbar's padding/border
    // used to be.
    const toolbarEl = btnEl.closest('.card-toolbar');
-@@ -1638,7 +1624,7 @@ function copyCardAsImage(cardEl, btnEl){
+@@ -1638,7 +1656,7 @@ function copyCardAsImage(cardEl, btnEl){
            showFeedback(true, 'Didownload ✓');
          }
        } catch (err) {
@@ -674,7 +755,7 @@ index 850d95b..c809f47 100644
          // fall back to a direct PNG download so the image is still usable.
          try { downloadBlob(blob); showFeedback(true, 'Didownload ✓'); }
          catch (e2) { showFeedback(false); }
-@@ -1648,6 +1634,7 @@ function copyCardAsImage(cardEl, btnEl){
+@@ -1648,6 +1666,7 @@ function copyCardAsImage(cardEl, btnEl){
  }
  
  function enhanceCopyButtons(rootId){
@@ -682,7 +763,7 @@ index 850d95b..c809f47 100644
    const root = document.getElementById(rootId);
    if (!root) return;
    root.querySelectorAll('.card').forEach(card => {
-@@ -1683,7 +1670,7 @@ function enhanceCopyButtons(rootId){
+@@ -1683,7 +1702,7 @@ function enhanceCopyButtons(rootId){
  function copyAllTables(){
    const sel = document.getElementById('channel-select');
    const label = CHANNEL_LABEL[sel.value] || sel.value;
@@ -691,7 +772,7 @@ index 850d95b..c809f47 100644
    document.querySelectorAll('#pi-body tr').forEach(tr => {
      const cells = [...tr.children].map(td => {
        const input = td.querySelector('input');
-@@ -1692,7 +1679,7 @@ function copyAllTables(){
+@@ -1692,7 +1711,7 @@ function copyAllTables(){
      });
      text += cells.join('\t') + '\n';
    });
@@ -700,7 +781,7 @@ index 850d95b..c809f47 100644
    document.querySelectorAll('#kp-body tr').forEach(tr => {
      const cells = [...tr.children].map(td => td.textContent.trim());
      text += cells.join('\t') + '\n';
-@@ -1784,7 +1771,7 @@ async function uploadChunks(period_id, kind, items){
+@@ -1784,7 +1803,7 @@ async function uploadChunks(period_id, kind, items){
      }
    }
  }
@@ -709,7 +790,7 @@ index 850d95b..c809f47 100644
  // detail = gapsByChannel object (or null), voice = array of call records (or null).
  async function apiSavePeriod(bundle){
    const ticketData = bundle.ticket;
-@@ -1952,7 +1939,7 @@ function updatePeriodNote(){
+@@ -1952,7 +1971,7 @@ function updatePeriodNote(){
    let msg = rows.toLocaleString('id-ID') + ' baris tiket pada ' + label + '.';
    if (det && (det.year !== c.year || det.month !== c.month)) msg += ' Bulan yang terdeteksi dari file: ' + PERIOD_MONTHS[det.month] + ' ' + det.year + '.';
    const exists = dbPeriods.some(p => p.year === c.year && p.month === c.month);
@@ -718,7 +799,7 @@ index 850d95b..c809f47 100644
    if (!rows) msg += ' Tidak ada baris tiket di periode ini, ganti bulan/tahun.';
    note.textContent = msg;
    note.style.color = (exists || !rows) ? 'var(--red)' : 'var(--slate-soft)';
-@@ -2018,7 +2005,7 @@ async function refreshPeriodsList(){
+@@ -2018,7 +2037,7 @@ async function refreshPeriodsList(){
      }
      const optHtml = periods.map(p => `<option value="${p.year}-${p.month}">${p.label} (${p.row_count} baris)</option>`).join('');
      selA.innerHTML = optHtml;
@@ -727,7 +808,7 @@ index 850d95b..c809f47 100644
      selB.selectedIndex = periods.length > 1 ? 1 : periods.length;
      updatePeriodNote();
    } catch (err) {
-@@ -2085,7 +2072,7 @@ function refreshFilterValueOptions(){
+@@ -2085,7 +2104,7 @@ function refreshFilterValueOptions(){
    const type = document.getElementById('filter-type-select').value;
    const valSel = document.getElementById('filter-value-select');
    const dateSel = document.getElementById('filter-date-select');
@@ -736,7 +817,7 @@ index 850d95b..c809f47 100644
    const rows = aggregateAllChannels(curr.ticket);
    let values = [];
    if (type === 'produk') values = ['E-Meterai', 'Digital Sign', 'Lain-lain'];
-@@ -2116,7 +2103,7 @@ function renderFilterResult(){
+@@ -2116,7 +2135,7 @@ function renderFilterResult(){
    }
    const top = topCategoriesFor(scoped, 10);
    if (!top.length){ body.innerHTML = '<tr><td colspan="3" class="label">Tidak ada data.</td></tr>'; return; }
@@ -745,7 +826,7 @@ index 850d95b..c809f47 100644
    fadeInEl(body);
  }
  document.getElementById('filter-type-select').addEventListener('change', refreshFilterValueOptions);
-@@ -2125,32 +2112,110 @@ document.getElementById('filter-date-select').addEventListener('change', renderF
+@@ -2125,32 +2144,110 @@ document.getElementById('filter-date-select').addEventListener('change', renderF
  
  // ============ POPULASI HANDLING TIME & ESCALATION TIME ============
  function refreshPopChannelOptions(){
@@ -891,7 +972,7 @@ index 86ff3d6..528cd56 100644
          err.textContent = ex.message;
          const boxEl = document.getElementById('auth-form'); boxEl.classList.remove('shake'); void boxEl.offsetWidth; boxEl.classList.add('shake');
 diff --git a/public/shell.js b/public/shell.js
-index bd9e66c..d4e2bd4 100644
+index bd9e66c..cabc7bf 100644
 --- a/public/shell.js
 +++ b/public/shell.js
 @@ -1,4 +1,4 @@
@@ -932,8 +1013,15 @@ index bd9e66c..d4e2bd4 100644
    document.body.classList.add('has-sidebar');
    if (collapsed) document.body.classList.add('sidebar-collapsed');
    document.body.insertBefore(aside, document.body.firstChild);
+@@ -233,3 +243,6 @@
+ // Palet warna channel (dipakai semua diagram): Voice biru, Email orange,
+ // WhatsApp Business hijau, WhatsApp Group (Manual) abu-abu.
+ window.CHANNEL_PALETTE = { voice: '#3568c9', email: '#d4680f', whatsapp: '#43b86e', manual: '#7f8a9a' };
++// Palet produk (dipakai semua grafik/kartu): E-Meterai kuning, Digital Sign (Perisai) biru, sedikit lebih muda.
++// *Text = versi lebih gelap untuk teks di atas latar putih.
++window.PRODUCT_PALETTE = { emeterai: '#f3b757', digitalsign: '#5d86d4', emeteraiText: '#c98a1d', digitalsignText: '#3f6bc4' };
 diff --git a/public/summary.html b/public/summary.html
-index 5a4ae16..1ec550a 100644
+index 5a4ae16..fe758ba 100644
 --- a/public/summary.html
 +++ b/public/summary.html
 @@ -7,6 +7,7 @@
@@ -944,7 +1032,35 @@ index 5a4ae16..1ec550a 100644
  <link rel="preconnect" href="https://fonts.googleapis.com">
  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
  <link rel="stylesheet" href="/shell.css">
-@@ -581,7 +582,7 @@ async function loadInsight(retry){
+@@ -76,7 +77,7 @@
+   .stat{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--card); }
+   .stat .label{ font-size:11px; color:var(--slate-soft); font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+   .stat .value{ font-size:19px; font-weight:700; font-family:var(--mono); }
+-  .stat.accent-e .value{ color:var(--teal); } .stat.accent-v .value{ color:var(--amber); } .stat.accent-w .value{ color:var(--blue); } .stat.accent-p .value{ color:#8b5fbf; }
++  .stat.accent-e .value{ color:var(--teal); } .stat.accent-v .value{ color:var(--amber); } .stat.accent-w .value{ color:var(--blue); } .stat.accent-pd .value{ color:#3f6bc4; } .stat.accent-pe .value{ color:#c98a1d; }
+   .stat.accent-m .value{ color:#5b6675; }
+ 
+   .chart-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+@@ -101,7 +102,7 @@
+   tbody tr:last-child td{ border-bottom:none; }
+   .chip{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700; font-family:var(--sans); }
+   .chip.email{ background:#e4f2ef; color:var(--teal); } .chip.voice{ background:#fdf1de; color:var(--amber); }
+-  .chip.whatsapp{ background:#e7edfb; color:var(--blue); } .chip.perisai{ background:#e4f2ef; color:var(--teal); } .chip.emeterai{ background:#f2e9fb; color:#8b5fbf; }
++  .chip.whatsapp{ background:#e7edfb; color:var(--blue); } .chip.perisai{ background:#e8eefb; color:#3f6bc4; } .chip.emeterai{ background:#fdf1dc; color:#a86a0a; }
+   .chip.manual{ background:#eef1f4; color:#5b6675; }
+   .row-actions{ display:flex; gap:6px; }
+   .icon-btn{ font-family:var(--sans); font-size:11.5px; font-weight:600; border:1px solid var(--line); background:var(--card); border-radius:6px; padding:4px 10px; cursor:pointer; }
+@@ -313,7 +314,8 @@ const CH_CLASS = { Email:'email', Voice:'voice', WhatsApp:'whatsapp', Manual:'ma
+ const PR_CLASS = { Perisai:'perisai', 'E-Meterai':'emeterai' };
+ const CH_PAL = window.CHANNEL_PALETTE || { voice:'#3568c9', email:'#d4680f', whatsapp:'#43b86e', manual:'#7f8a9a' };
+ const CHART_COLORS = { Email:CH_PAL.email, Voice:CH_PAL.voice, WhatsApp:CH_PAL.whatsapp, Manual:CH_PAL.manual };
+-const PRODUK_COLORS = { Perisai:'#0f7a6b', 'E-Meterai':'#8b5fbf' };
++// Perisai = Digital Signature -> warna Digital Sign; E-Meterai -> warna E-Meterai (sama di semua halaman)
++const PRODUK_COLORS = { Perisai:(window.PRODUCT_PALETTE||{}).digitalsign || '#5d86d4', 'E-Meterai':(window.PRODUCT_PALETTE||{}).emeterai || '#f3b757' };
+ 
+ let channelRecords = [];
+ let produkRecords = [];
+@@ -581,7 +583,7 @@ async function loadInsight(retry){
    const month = retry ? 'all' : sel.value;
    const produk = document.getElementById('insProduk').value;
    const seq = ++insSeq;
@@ -953,7 +1069,7 @@ index 5a4ae16..1ec550a 100644
    try {
      const res = await fetch('/api/summary/insight?year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month) + '&produk=' + encodeURIComponent(produk));
      const j = await res.json();
-@@ -629,8 +630,43 @@ function renderInsight(){
+@@ -629,8 +631,43 @@ function renderInsight(){
    document.getElementById('insInfo').textContent = 'Total ' + insNf(insData.total) + ' interaksi · ' + (year === 'all' ? 'Semua tahun' : 'Tahun ' + year) + ' · ' + (month === 'all' ? 'Semua bulan' : INS_MONTHS[Number(month)]) + ' · Produk: ' + prodSel.options[prodSel.selectedIndex].text + '. Klik baris untuk melihat rinciannya. Interaksi = jumlah baris Report Ticket yang tersimpan di database.';
    const v = insData.views[document.getElementById('insView').value];
    const box = document.getElementById('insList');
@@ -998,7 +1114,18 @@ index 5a4ae16..1ec550a 100644
  }
  document.getElementById('insList').addEventListener('click', (e) => {
    const b = e.target.closest('.ins-row[data-k]'); if (!b) return;
-@@ -766,7 +802,7 @@ const valueLabelsPlugin = {
+@@ -684,8 +721,8 @@ function renderSummaryProduk(rows){
+   rows.forEach(r => byProduk[r.produk] = (byProduk[r.produk] || 0) + (r.totalInteraksi || 0));
+   const cards = [
+     { label:'Total Interaksi', value: fmtNum(total), cls:'' },
+-    { label:'Perisai', value: fmtNum(byProduk.Perisai), cls:'accent-p' },
+-    { label:'E-Meterai', value: fmtNum(byProduk['E-Meterai']), cls:'accent-p' },
++    { label:'Perisai', value: fmtNum(byProduk.Perisai), cls:'accent-pd' },
++    { label:'E-Meterai', value: fmtNum(byProduk['E-Meterai']), cls:'accent-pe' },
+   ];
+   document.getElementById('summaryCardsProduk').innerHTML = cards.map(c => `<div class="stat ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div></div>`).join('');
+ }
+@@ -766,7 +803,7 @@ const valueLabelsPlugin = {
      const fmt = (v, wide) => {
        v = Number(v);
        if (cfg.decimals > 0) return v.toFixed(cfg.decimals);          // desimal pakai titik

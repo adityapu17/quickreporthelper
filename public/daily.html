@@ -377,7 +377,7 @@ const CH_PAL = window.CHANNEL_PALETTE || { voice:'#3568c9', email:'#d4680f', wha
 const DAILY_COLORS = { voice:CH_PAL.voice, email:CH_PAL.email, whatsapp:CH_PAL.whatsapp };
 const RT_COLORS = { email:CH_PAL.email, wa:CH_PAL.whatsapp };
 // Product chart colors: Digital Sign = regular blue, E-Meterai = yellowish-orange
-const PRODUCT_COLORS = { eMeterai:'#f0a52d', digitalSign:'#3568c9' };
+const PRODUCT_COLORS = { eMeterai:(window.PRODUCT_PALETTE||{}).emeterai || '#f3b757', digitalSign:(window.PRODUCT_PALETTE||{}).digitalsign || '#5d86d4' };
 let chartDaily = null, chartRt = null, chartProduct = null;
 const EXPORT_PER_DAY = 46, EXPORT_MIN_WIDTH = 900, EXPORT_HEIGHT = 560;
 
@@ -431,7 +431,7 @@ function chartOpts(n, forExport, o){
       legend:{ position:'bottom', labels:{ color:'#425066', usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:18, font:{ size: forExport?13:12 } } },
       tooltip:{ enabled: !forExport, backgroundColor:'#1b2430', titleColor:'#fff', bodyColor:'#dbe2e9', padding:10 },
       datalabels: o.datalabels ? {
-        color:(ctx) => ctx.dataset.label === 'Voice' ? '#1a2620' : '#fff',
+        color:(ctx) => (ctx.dataset.label === 'Voice' || ctx.dataset.label === 'E-Meterai') ? '#1a2620' : '#fff',
         font:{ size: forExport?11:10, weight:'600' },
         formatter:(v) => v > 0 ? Number(v).toLocaleString('id-ID') : '',
         display:(ctx) => typeof ctx.dataset.data[ctx.dataIndex] === 'number' && ctx.dataset.data[ctx.dataIndex] > 0,

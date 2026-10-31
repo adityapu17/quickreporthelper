@@ -724,14 +724,18 @@ function renderSummaryChannel(rows){
   const avgAht = voiceRows.length ? voiceRows.reduce((s,r) => s + r.aht, 0) / voiceRows.length : null;
   const scrRows = rows.filter(r => r.channel === 'Voice' && r.scr != null);
   const avgScr = scrRows.length ? scrRows.reduce((s,r) => s + r.scr, 0) / scrRows.length : null;
+  const avgRt = ch => { const l = rows.filter(r => r.channel === ch && r.responseTime != null); return l.length ? l.reduce((s,r) => s + r.responseTime, 0) / l.length : null; };
+  const avgRtEmail = avgRt('Email'), avgRtWa = avgRt('WhatsApp');
   const cards = [
     { label:'Total Interaksi', value: fmtNum(total), cls:'' },
     { label:'Email', value: fmtNum(byChannel.Email), cls:'accent-e' },
     { label:'Voice', value: fmtNum(byChannel.Voice), cls:'accent-v' },
     { label:'WhatsApp', value: fmtNum(byChannel.WhatsApp), cls:'accent-w' },
     { label:'Manual', value: fmtNum(byChannel.Manual), cls:'accent-m' },
-    { label:'Rata² AHT', value: avgAht != null ? fmtNum(avgAht,2)+' mnt' : '—', cls:'accent-v' },
-    { label:'Rata² SCR', value: avgScr != null ? fmtNum(avgScr,2)+'%' : '—', cls:'accent-v' },
+    { label:'Avg RT Email', value: avgRtEmail != null ? fmtNum(avgRtEmail,2)+' mnt' : '-', cls:'accent-e' },
+    { label:'Avg RT WhatsApp', value: avgRtWa != null ? fmtNum(avgRtWa,2)+' mnt' : '-', cls:'accent-w' },
+    { label:'Avg AHT', value: avgAht != null ? fmtNum(avgAht,2)+' mnt' : '-', cls:'accent-v' },
+    { label:'Avg SCR', value: avgScr != null ? fmtNum(avgScr,2)+'%' : '-', cls:'accent-v' },
   ];
   document.getElementById('summaryCardsChannel').innerHTML = cards.map(c => `<div class="stat ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div></div>`).join('');
 }

@@ -2041,7 +2041,8 @@ async function refreshPeriodsList(autoCompare){
     selA.innerHTML = '<option value="none">- tanpa pembanding -</option>' + optHtml;
     selB.innerHTML = optHtml;
     const latest = periods[0]; // periods sudah urut terbaru dulu
-    const py = latest.month === 1 ? latest.year - 1 : latest.year, pm = latest.month === 1 ? 12 : latest.month - 1;
+    // periods.month 0-based (Januari = 0): sebelum Januari adalah Desember (11) tahun lalu.
+    const py = latest.month === 0 ? latest.year - 1 : latest.year, pm = latest.month === 0 ? 11 : latest.month - 1;
     const prevP = periods.find(p => p.year === py && p.month === pm) || periods[1] || null; // fallback: periode lebih lama terdekat
     selB.value = `${latest.year}-${latest.month}`;
     selA.value = prevP ? `${prevP.year}-${prevP.month}` : 'none';

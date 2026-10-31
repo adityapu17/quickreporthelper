@@ -18,7 +18,8 @@ export async function onRequestPost(context) {
   const { env } = context;
   try {
     const all = (sql) => env.DB.prepare(sql).all().then(r => r.results || []);
-    const monthOk = (col, p) => `strftime('%Y-%m', datetime(${col}, '+7 hours')) = printf('%04d-%02d', ${p}.year, ${p}.month)`;
+    // periods.month disimpan 0..11 (getMonth JS, Januari = 0); channel_records/produk_records.bulan memakai 1..12.
+    const monthOk = (col, p) => `strftime('%Y-%m', datetime(${col}, '+7 hours')) = printf('%04d-%02d', ${p}.year, ${p}.month + 1)`;
 
     const [periods, chanCounts, catCounts, gaps, voice] = await Promise.all([
       all('SELECT id, year, month FROM periods ORDER BY year, month'),
@@ -43,7 +44,11 @@ export async function onRequestPost(context) {
     voice.forEach(r => { voiceBy[r.period_id] = r; });
 
     const now = new Date().toISOString();
-    const stmts = [];
+    const stmts = [
+      // Sisa sync versi lama yang salah menulis bulan 0-based: bulan 0 tidak valid.
+      env.DB.prepare('DELETE FROM channel_records WHERE bulan = 0'),
+      env.DB.prepare('DELETE FROM produk_records WHERE bulan = 0')
+    ];
     let channelRows = 0, produkRows = 0;
 
     const upsertChannel = (p, channel, total, rt, aht, scr) => {
@@ -53,22 +58,22 @@ export async function onRequestPost(context) {
         `UPDATE channel_records SET totalInteraksi = ?,
            responseTime = COALESCE(?, responseTime), aht = COALESCE(?, aht), scr = COALESCE(?, scr), updatedAt = ?
          WHERE bulan = ? AND tahun = ? AND channel = ?`
-      ).bind(total, r2(rt), r2(aht), r2(scr), now, p.month, p.year, channel));
+      ).bind(total, r2(rt), r2(aht), r2(scr), now, p.month + 1, p.year, channel));
       stmts.push(env.DB.prepare(
         `INSERT INTO channel_records (id, bulan, tahun, channel, totalInteraksi, responseTime, aht, scr, createdAt, updatedAt)
          SELECT ?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM channel_records WHERE bulan = ? AND tahun = ? AND channel = ?)`
-      ).bind(crypto.randomUUID(), p.month, p.year, channel, total, r2(rt), r2(aht), r2(scr), now, now, p.month, p.year, channel));
+      ).bind(crypto.randomUUID(), p.month + 1, p.year, channel, total, r2(rt), r2(aht), r2(scr), now, now, p.month + 1, p.year, channel));
       channelRows++;
     };
     const upsertProduk = (p, produk, total) => {
       // produk_records tidak punya UNIQUE: UPDATE dulu, INSERT hanya kalau belum ada baris.
       stmts.push(env.DB.prepare(
         'UPDATE produk_records SET totalInteraksi = ?, updatedAt = ? WHERE bulan = ? AND tahun = ? AND produk = ?'
-      ).bind(total, now, p.month, p.year, produk));
+      ).bind(total, now, p.month + 1, p.year, produk));
       stmts.push(env.DB.prepare(
         `INSERT INTO produk_records (id, bulan, tahun, produk, totalInteraksi, createdAt, updatedAt)
          SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM produk_records WHERE bulan = ? AND tahun = ? AND produk = ?)`
-      ).bind(crypto.randomUUID(), p.month, p.year, produk, total, now, now, p.month, p.year, produk));
+      ).bind(crypto.randomUUID(), p.month + 1, p.year, produk, total, now, now, p.month + 1, p.year, produk));
       produkRows++;
     };
 

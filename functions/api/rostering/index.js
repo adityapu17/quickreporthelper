@@ -1,10 +1,21 @@
 // GET /api/rostering — list saved rosterings
 export async function onRequestGet(context) {
   const { env } = context;
-  const { results } = await env.DB.prepare(
-    'SELECT id, bulan, tahun, jumlah_karyawan, hari_libur_nasional, cuti_bersama, created_at FROM rosterings ORDER BY tahun DESC, bulan DESC'
-  ).all();
-  return Response.json(results || []);
+  // shift_count = jumlah sel shift yang sudah terisi (untuk daftar Created Roster).
+  // Kalau query tambahan gagal, jatuh ke query lama supaya daftar roster tetap tampil.
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT r.id, r.bulan, r.tahun, r.jumlah_karyawan, r.hari_libur_nasional, r.cuti_bersama, r.created_at, ' +
+      '(SELECT COUNT(*) FROM roster_shifts s WHERE s.rostering_id = r.id) AS shift_count ' +
+      'FROM rosterings r ORDER BY r.tahun DESC, r.bulan DESC'
+    ).all();
+    return Response.json(results || []);
+  } catch (e) {
+    const { results } = await env.DB.prepare(
+      'SELECT id, bulan, tahun, jumlah_karyawan, hari_libur_nasional, cuti_bersama, created_at FROM rosterings ORDER BY tahun DESC, bulan DESC'
+    ).all();
+    return Response.json(results || []);
+  }
 }
 
 // POST /api/rostering — create or upsert a rostering (handles duplicate bulan/tahun)

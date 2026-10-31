@@ -52,7 +52,7 @@ const ROSTERING_HTML = `<!DOCTYPE html>
 
   .wrap{max-width:1600px; margin:0 auto; padding:16px 24px 48px;}
 
-  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; margin-bottom:16px; overflow:hidden; box-shadow:0 1px 2px rgba(20,30,45,.04);}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 1px 2px rgba(20,30,45,.04);}
   .card h2{margin:0; padding:12px 16px; font-size:13.5px; font-weight:700; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; background:#fbfcfd; font-family:var(--heading);}
 
   .btn-primary{ background:var(--teal); border:1px solid var(--teal); color:#fff; font-weight:600; border-radius:7px; padding:8px 16px; font-size:13px; cursor:pointer; }
@@ -70,22 +70,50 @@ const ROSTERING_HTML = `<!DOCTYPE html>
   .picker-field label{font-size:11px; font-weight:700; color:var(--slate-soft); text-transform:uppercase; letter-spacing:.03em;}
   .picker-field select, .picker-field input[type=number]{font-family:var(--sans); font-size:13.5px; border-radius:7px; border:1px solid var(--line); padding:8px 12px; background:var(--card); color:var(--ink); min-width:140px;}
 
-  /* Calendar */
-  .calendar-wrap{overflow-x:auto; overflow-y:auto; max-height:650px;}
-  .calendar-table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:max-content; table-layout:fixed;}
-  .calendar-table th{position:sticky; top:0; background:#fbfcfd; z-index:10; text-align:center; font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-soft); padding:6px 3px; border-bottom:1.5px solid var(--line); font-weight:700;}
-  .calendar-table th.agent-col{position:sticky; left:0; width:190px; min-width:190px; background:#fbfcfd; z-index:20; text-align:left; padding:6px 10px;}
-  .calendar-table td{text-align:center; padding:3px 2px; border-bottom:1px solid #eef1f4; border-right:1px solid #eef1f4; height:34px; vertical-align:middle;}
-  .calendar-table td.agent-col{position:sticky; left:0; width:190px; min-width:190px; background:var(--card); z-index:15; text-align:left; padding:6px 10px; font-weight:600; font-size:11.5px;}
-  .calendar-table tr:hover td.agent-col{background:var(--teal-soft);}
-  .calendar-table tr.today td{background:rgba(15,122,107,.08);}
-  .calendar-table tr.weekend td{background:rgba(179,67,47,.05);}
+  /* Tabs */
+  .roster-tabs{display:inline-flex; gap:4px; padding:4px; background:#e9edf2; border-radius:11px; margin-bottom:16px;}
+  .roster-tab{border:none; background:transparent; font-family:var(--sans); font-size:13px; font-weight:600; color:var(--slate-soft); padding:8px 18px; border-radius:8px; cursor:pointer;}
+  .roster-tab:hover{color:var(--ink);}
+  .roster-tab.active{background:var(--card); color:var(--teal); box-shadow:0 1px 3px rgba(20,30,45,.14);}
 
-  .section-row td{background:var(--teal-soft); font-weight:600; font-size:11px; text-align:center; padding:8px; border-top:2px solid var(--line);}
-  .section-row td:first-child{background:var(--teal-soft);}
+  /* Calendar (modern, tetap simple) */
+  .calendar-wrap{overflow:auto; max-height:680px; padding-bottom:4px;}
+  .calendar-table{width:100%; border-collapse:separate; border-spacing:0; font-size:12px; min-width:max-content; table-layout:fixed;}
+  .calendar-table th{position:sticky; top:0; z-index:10; background:#fff; padding:8px 2px 6px; border-bottom:1px solid var(--line); font-weight:600; color:var(--slate-soft); text-align:center;}
+  .calendar-table th .dn{display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em;}
+  .calendar-table th .dd{display:block; font-size:15px; font-weight:700; color:var(--ink); margin-top:2px; line-height:1.3;}
+  .calendar-table th.weekend .dn, .calendar-table th.weekend .dd{color:var(--red);}
+  .calendar-table th.today .dd{background:var(--teal); color:#fff; border-radius:999px; width:26px; height:26px; line-height:26px; margin:2px auto 0; font-size:13px;}
+  .calendar-table th.agent-col{left:0; z-index:20; text-align:left; padding:8px 14px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; vertical-align:bottom;}
+  .calendar-table td{text-align:center; padding:3px 2px; height:38px; border-bottom:1px solid #f0f3f6; vertical-align:middle; background:#fff;}
+  .calendar-table td.weekend{background:#fdf4f2;}
+  .calendar-table td.today{background:#eaf6f3;}
+  .calendar-table td.agent-col{position:sticky; left:0; z-index:15; text-align:left; padding:3px 8px 3px 10px; background:#fff; box-shadow:1px 0 0 #eef1f4;}
+  .calendar-table tbody tr:hover td{background-image:linear-gradient(rgba(15,122,107,.06),rgba(15,122,107,.06));}
 
-  .shift-select{width:100%; height:100%; border:none; background:transparent; font-size:10.5px; font-weight:600; text-align:center; cursor:pointer; padding:1px; border-radius:3px;}
-  .shift-select:focus{outline:none; background:var(--teal-soft);}
+  .section-row td{background:var(--sec,#f0f4f8); padding:7px 14px; height:auto; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--slate); border-bottom:1px solid #e6ebf0;}
+  .section-row td.agent-col{background:var(--sec,#f0f4f8); box-shadow:none;}
+  .calendar-table tbody tr.section-row:hover td{background-image:none;}
+
+  .shift-select{appearance:none; -webkit-appearance:none; width:100%; height:28px; border:1px solid transparent; background:transparent; font-family:var(--sans); font-size:11px; font-weight:700; text-align:center; text-align-last:center; cursor:pointer; padding:0 2px; border-radius:8px;}
+  .shift-select:hover{border-color:var(--line);}
+  .shift-select:focus{outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(15,122,107,.14);}
+
+  .stats-table{width:100%; border-collapse:collapse; font-size:12px; margin:0;}
+  .stats-table th{text-align:right; padding:8px 12px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate-soft); border-bottom:1px solid var(--line); background:#fbfcfd;}
+  .stats-table th:first-child, .stats-table td:first-child{text-align:left;}
+  .stats-table td{text-align:right; padding:7px 12px; border-bottom:1px solid #f0f3f6; font-variant-numeric:tabular-nums;}
+  .stats-table tr.team td{font-weight:700; background:var(--teal-soft); border-bottom:none;}
+
+  /* Created Roster */
+  .saved-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:12px; padding:16px;}
+  .saved-roster{border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:#fff; display:flex; flex-direction:column; gap:14px;}
+  .saved-roster:hover{border-color:var(--teal); box-shadow:0 4px 14px rgba(20,30,45,.08);}
+  .saved-roster-title{display:block; font-family:var(--heading); font-weight:700; font-size:15px;}
+  .saved-roster-meta{display:block; font-size:12px; color:var(--slate-soft); margin-top:4px; line-height:1.6;}
+  .saved-roster-actions{display:flex; gap:8px;}
+  .saved-roster-actions .btn-primary{padding:5px 14px; font-size:12px;}
+
   /* New shift code colors */
   .shift-OFF{background:rgba(25,135,84,.18); color:#198754;}      /* Green */
   .shift-CT{background:rgba(13,110,253,.18); color:#0d6efd;}      /* Blue */
@@ -96,19 +124,22 @@ const ROSTERING_HTML = `<!DOCTYPE html>
   .shift-empty{background:transparent; color:var(--slate-soft);}
 
   /* Agent name dropdown styling */
-  .agent-name-select{width:100%; height:100%; border:none; background:transparent; font-size:10.5px; font-weight:600; text-align:left; cursor:pointer; padding:1px; border-radius:3px; color:#111827;}
+  .agent-name-select{width:100%; height:30px; border:1px solid transparent; background:transparent; font-family:var(--sans); font-size:12px; font-weight:600; text-align:left; cursor:pointer; padding:0 4px; border-radius:8px; color:#111827;}
+  .agent-name-select:hover{border-color:var(--line);}
   .agent-name-select:focus{outline:none; background:var(--teal-soft);}
 
-  .shift-legend{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; font-size:10.5px; padding:0 4px;}
-  .shift-legend-item{display:flex; align-items:center; gap:3px; padding:3px 8px; border-radius:4px; background:var(--paper); border:1px solid var(--line);}
-  .shift-legend-color{width:10px; height:10px; border-radius:2px;}
+  .shift-legend{display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px 10px; font-size:10.5px;}
+  .shift-legend-item{display:flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); font-weight:600; color:var(--slate);}
+  .shift-legend-color{width:10px; height:10px; border-radius:50%; border:1px solid rgba(0,0,0,.12);}
 
   .agent-name-input{width:100%; border:none; background:transparent; font:inherit; font-weight:600; font-size:11.5px; color:var(--ink); padding:2px 4px;}
   .agent-name-input:focus{outline:none; background:var(--teal-soft); border-radius:3px;}
 
   .agent-row-name{width:100%; min-width:180px; display:flex; align-items:center; gap:6px;}
   .agent-name-wrapper{display:flex; align-items:center; gap:4px;}
-  .agent-delete-btn{background:none; border:1px solid var(--line); border-radius:3px; width:22px; height:22px; cursor:pointer; color:var(--red); font-size:9px; display:flex; align-items:center; justify-content:center;}
+  .agent-delete-btn{background:none; border:1px solid var(--line); border-radius:6px; width:22px; height:22px; flex:none; cursor:pointer; color:var(--red); font-size:9px; display:flex; align-items:center; justify-content:center; opacity:0;}
+  tr:hover .agent-delete-btn, .agent-delete-btn:focus{opacity:1;}
+  @media (hover:none){ .agent-delete-btn{opacity:1;} }
 
   .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 16px; border-top:1px solid var(--line); background:#fafbfc;}
   .toolbar-left{display:flex; gap:8px; align-items:center;}
@@ -143,7 +174,7 @@ const ROSTERING_HTML = `<!DOCTYPE html>
   <div class="header-account">
     <span id="whoami"></span>
     <div class="bot-helper">
-      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/robot.png" alt="Bantuan"></button>
+      <button id="btn-bot" aria-label="Bantuan" title="Bantuan"><img src="/help-icon.png" alt="Bantuan"></button>
       <div class="bot-bubble" id="bot-bubble">
         <b>Cara pakai</b>
         <div style="margin-top:6px;">1. Pilih <b>Bulan</b> & <b>Tahun</b>, klik <b>Buka Kalender</b></div>
@@ -158,6 +189,11 @@ const ROSTERING_HTML = `<!DOCTYPE html>
 </header>
 
 <div class="wrap">
+  <div class="roster-tabs" id="rosterTabs">
+    <button class="roster-tab active" id="tabBuat" type="button">Buat / Buka Roster</button>
+    <button class="roster-tab" id="tabCreated" type="button">Created Roster</button>
+  </div>
+
   <!-- PICKER SECTION -->
   <div class="card" id="pickerCard">
     <h2>Pilih Bulan & Tahun</h2>
@@ -236,11 +272,12 @@ const ROSTERING_HTML = `<!DOCTYPE html>
   <!-- MANAGE ROSTER SECTION (hidden initially) -->
   <div class="card" id="manageCard" style="display:none;">
     <h2>
-      <span>Kelola Roster Tersimpan</span>
+      <span>Created Roster</span>
+      <span class="roster-info" id="manageCount"></span>
     </h2>
     <div id="manageListContent" style="padding:4px;">
       <div class="empty-state" id="manageEmptyList">Memuat...</div>
-      <div id="manageList" style="display:none;"></div>
+      <div id="manageList" class="saved-grid" style="display:none;"></div>
     </div>
   </div>
 </div>
@@ -507,7 +544,14 @@ async function openCalendarFromRoster(roster) {
   }
 }
 
+function setRosterTab(name) {
+  document.getElementById('tabBuat').classList.toggle('active', name === 'buat');
+  document.getElementById('tabCreated').classList.toggle('active', name === 'created');
+}
+
 function showCalendarView() {
+  setRosterTab('buat');
+  document.getElementById('manageCard').style.display = 'none';
   document.getElementById('pickerCard').style.display = 'none';
   document.getElementById('calendarCard').style.display = 'block';
   document.getElementById('calendarTitle').textContent = MONTHS[currentRoster.bulan] + ' ' + currentRoster.tahun;
@@ -535,7 +579,7 @@ function renderCalendarStats() {
   const statsContainer = document.getElementById('calendarStats') || (() => {
     const el = document.createElement('div');
     el.id = 'calendarStats';
-    el.style.cssText = 'margin-top:8px; font-size:10px;';
+    el.style.cssText = 'margin-top:12px; border-top:1px solid var(--line);';
     const wrap = document.getElementById('calendarWrap');
     if (wrap) wrap.appendChild(el);
     return el;
@@ -543,26 +587,24 @@ function renderCalendarStats() {
   if (!currentRoster) { statsContainer.innerHTML = ''; return; }
 
   const ordered = Object.keys(currentCalendarAgents).map(Number).sort((a,b)=>a-b);
-  let html = '<div style="display:flex; flex-direction:column; gap:4px;">';
+  let html = '<table class="stats-table"><thead><tr><th>Agent</th><th>NS</th><th>LS</th><th>OFF</th><th>CT</th><th>Total HL</th><th>Total HK</th></tr></thead><tbody>';
   ordered.forEach(idx => {
     const stats = computeAgentStats(idx);
     const name = currentCalendarAgents[idx] || ('Agent ' + idx);
-    html += '<div style="border:1px solid var(--line); border-radius:4px; padding:4px 8px; background:var(--card-bg,#fff);">';
-    html += '<b>' + name + '</b>: ';
-    html += 'NS=' + stats.NS + ' | LS=' + stats.LS + ' | OFF=' + stats.OFF + ' | CT=' + stats.CT + ' | TOTAL HL=' + stats.TOTAL_HL + ' | TOTAL HK=' + stats.TOTAL_HK;
-    html += '</div>';
+    html += '<tr><td>' + name + '</td><td>' + stats.NS + '</td><td>' + stats.LS + '</td><td>' + stats.OFF + '</td><td>' + stats.CT + '</td><td>' + stats.TOTAL_HL + '</td><td>' + stats.TOTAL_HK + '</td></tr>';
   });
-  // Team summary
   let sNS=0,sLS=0,sOFF=0,sCT=0;
-  ordered.forEach(idx => { const s=computeAgentStats(idx); sNS+=s.NS; sLS+=s.LS; sOFF+=s.OFF; sCT+=s.CT; });
+  ordered.forEach(idx => { const st=computeAgentStats(idx); sNS+=st.NS; sLS+=st.LS; sOFF+=st.OFF; sCT+=st.CT; });
   const hariDalamBulan = new Date(currentRoster.tahun, currentRoster.bulan, 0).getDate();
   const grandHL = sOFF + sCT;
   const grandHK = hariDalamBulan * ordered.length - grandHL;
-  html += '<div style="border-top:1px solid var(--line); padding-top:4px; font-weight:600; margin-top:4px;">Team: NS='+(sNS)+' LS='+(sLS)+' OFF='+(sOFF)+' CT='+(sCT)+' TOTAL HL='+(grandHL)+' TOTAL HK='+(grandHK)+'</div></div>';
+  html += '<tr class="team"><td>Team</td><td>' + sNS + '</td><td>' + sLS + '</td><td>' + sOFF + '</td><td>' + sCT + '</td><td>' + grandHL + '</td><td>' + grandHK + '</td></tr></tbody></table>';
   statsContainer.innerHTML = html;
 }
 
 function backToPicker() {
+  setRosterTab('buat');
+  document.getElementById('manageCard').style.display = 'none';
   document.getElementById('calendarCard').style.display = 'none';
   document.getElementById('pickerCard').style.display = 'block';
   document.getElementById('calendarEmpty').style.display = 'block';
@@ -614,90 +656,36 @@ function renderCalendar() {
   // Explicit colgroup for reliable column alignment with table-layout:fixed
   const colgroup = document.createElement('colgroup');
   const agentCol = document.createElement('col');
-  agentCol.style.width = '190px';
-  agentCol.style.minWidth = '190px';
+  agentCol.style.width = '210px';
+  agentCol.style.minWidth = '210px';
   colgroup.appendChild(agentCol);
   for (let d = 1; d <= hariDalamBulan; d++) {
     const col = document.createElement('col');
-    col.style.width = '56px';
-    col.style.minWidth = '56px';
+    col.style.width = '46px';
+    col.style.minWidth = '46px';
     colgroup.appendChild(col);
   }
   table.appendChild(colgroup);
 
-  const dateHeaderRow = document.createElement('tr');
-  const dayNameHeaderRow = document.createElement('tr');
-  const dayNumberHeaderRow = document.createElement('tr');
-
+  const headRow = document.createElement('tr');
   const agentHeader = document.createElement('th');
   agentHeader.className = 'agent-col';
-  agentHeader.textContent = 'Agent / Tanggal';
-  agentHeader.rowSpan = 3;
-  agentHeader.style.background = '#fbfcfd';
-  agentHeader.style.position = 'sticky';
-  agentHeader.style.left = '0';
-  agentHeader.style.zIndex = '20';
-  agentHeader.style.padding = '6px 10px';
-  agentHeader.style.borderBottom = '1.5px solid var(--line)';
-  agentHeader.style.fontWeight = '700';
-  agentHeader.style.fontSize = '9.5px';
-  agentHeader.style.textTransform = 'uppercase';
-  agentHeader.style.letterSpacing = '.04em';
-  agentHeader.style.color = 'var(--slate-soft)';
-  dateHeaderRow.appendChild(agentHeader);
-  // Rows 2 & 3: NO first cell — agentHeader rowSpan=3 already covers this column
-
+  agentHeader.textContent = 'Agent';
+  headRow.appendChild(agentHeader);
+  const nowD = new Date();
+  const isTodayDay = function (d) {
+    return currentRoster.tahun === nowD.getFullYear() && currentRoster.bulan - 1 === nowD.getMonth() && d === nowD.getDate();
+  };
   for (let d = 1; d <= hariDalamBulan; d++) {
     const date = new Date(currentRoster.tahun, currentRoster.bulan - 1, d);
-    const dayName = DAY_NAMES[date.getDay()];
     const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-
-    // Row 1: date
-    const dateTh = document.createElement('th');
-    dateTh.textContent = d + '-' + MONTHS[currentRoster.bulan].substring(0,3) + '-' + String(currentRoster.tahun).slice(-2);
-    dateTh.style.width = '56px';
-    dateTh.style.minWidth = '56px';
-    dateTh.style.padding = '6px 3px';
-    dateTh.style.borderBottom = '1.5px solid var(--line)';
-    dateTh.style.fontWeight = '700';
-    dateTh.style.fontSize = '9.5px';
-    dateTh.style.textAlign = 'center';
-    dateTh.style.textTransform = 'uppercase';
-    dateTh.style.letterSpacing = '.04em';
-    dateTh.style.color = 'var(--slate-soft)';
-    if (isWeekend) dateTh.style.background = 'rgba(179,67,47,.05)';
-    dateHeaderRow.appendChild(dateTh);
-
-    // Row 2: day name
-    const dayNameTh = document.createElement('th');
-    dayNameTh.textContent = dayName;
-    dayNameTh.style.width = '56px';
-    dayNameTh.style.minWidth = '56px';
-    dayNameTh.style.padding = '2px 3px';
-    dayNameTh.style.borderBottom = '1.5px solid var(--line)';
-    dayNameTh.style.fontWeight = '600';
-    dayNameTh.style.fontSize = '9px';
-    dayNameTh.style.textAlign = 'center';
-    dayNameTh.style.color = isWeekend ? 'var(--red)' : 'var(--slate-soft)';
-    dayNameHeaderRow.appendChild(dayNameTh);
-
-    // Row 3: day number
-    const dayNumTh = document.createElement('th');
-    dayNumTh.textContent = d;
-    dayNumTh.style.width = '56px';
-    dayNumTh.style.minWidth = '56px';
-    dayNumTh.style.padding = '2px 3px';
-    dayNumTh.style.borderBottom = '1.5px solid var(--line)';
-    dayNumTh.style.fontWeight = '600';
-    dayNumTh.style.fontSize = '9px';
-    dayNumTh.style.textAlign = 'center';
-    dayNumTh.style.color = isWeekend ? 'var(--red)' : 'var(--slate-soft)';
-    dayNumberHeaderRow.appendChild(dayNumTh);
+    const th = document.createElement('th');
+    th.className = 'day-col' + (isWeekend ? ' weekend' : '') + (isTodayDay(d) ? ' today' : '');
+    th.title = d + ' ' + MONTHS[currentRoster.bulan] + ' ' + currentRoster.tahun;
+    th.innerHTML = '<span class="dn">' + DAY_NAMES[date.getDay()] + '</span><span class="dd">' + d + '</span>';
+    headRow.appendChild(th);
   }
-
-  thead.appendChild(dateHeaderRow);
-  thead.appendChild(dayNameHeaderRow);
-  thead.appendChild(dayNumberHeaderRow);
+  thead.appendChild(headRow);
 
   // Build tbody with dynamic sections
   tbody.innerHTML = '';
@@ -734,37 +722,16 @@ function renderCalendar() {
   sectionGroups.forEach((group) => {
     const secDef = SECTION_DEFS.find(s => s.name === group.section) || {name: group.section, count: group.agents.length, color:'#f0f4f8'};
 
-    // Section header row — match thead structure: agent-col cell + span for day columns
+    // Baris section: label di kolom agent (sticky, selalu terlihat saat scroll), warna lewat --sec
     const sectionRow = document.createElement('tr');
     sectionRow.className = 'section-row';
-    
-    // First cell: corresponds to sticky agent column (blank but same width)
+    sectionRow.style.setProperty('--sec', secDef.color);
     const agentColCell = document.createElement('td');
     agentColCell.className = 'agent-col';
-    agentColCell.style.position = 'sticky';
-    agentColCell.style.left = '0';
-    agentColCell.style.zIndex = '15';
-    agentColCell.style.background = secDef.color;
-    agentColCell.style.padding = '8px 10px';
-    agentColCell.style.borderBottom = '1px solid #eef1f4';
-    agentColCell.style.borderRight = '1px solid #eef1f4';
-    agentColCell.style.fontWeight = '600';
-    agentColCell.style.fontSize = '11px';
-    agentColCell.style.width = '190px';
-    agentColCell.style.minWidth = '190px';
+    agentColCell.textContent = group.section + ' (' + group.agents.length + ')';
     sectionRow.appendChild(agentColCell);
-    
-    // Second cell: spans all day columns
     const sectionCell = document.createElement('td');
     sectionCell.colSpan = hariDalamBulan;
-    sectionCell.textContent = group.section;
-    sectionCell.style.background = secDef.color;
-    sectionCell.style.fontWeight = '600';
-    sectionCell.style.fontSize = '11px';
-    sectionCell.style.textAlign = 'center';
-    sectionCell.style.padding = '8px';
-    sectionCell.style.borderTop = '2px solid var(--line)';
-    sectionCell.style.borderBottom = '1px solid #eef1f4';
     sectionRow.appendChild(sectionCell);
     tbody.appendChild(sectionRow);
 
@@ -775,13 +742,6 @@ function renderCalendar() {
       // Agent name cell (sticky)
       const agentNameCell = document.createElement('td');
       agentNameCell.className = 'agent-col';
-      agentNameCell.style.position = 'sticky';
-      agentNameCell.style.left = '0';
-      agentNameCell.style.zIndex = '15';
-      agentNameCell.style.background = 'var(--card)';
-      agentNameCell.style.padding = '6px 10px';
-      agentNameCell.style.borderBottom = '1px solid #eef1f4';
-      agentNameCell.style.borderRight = '1px solid #eef1f4';
 
       const agentNameWrapper = document.createElement('div');
       agentNameWrapper.className = 'agent-row-name';
@@ -843,14 +803,9 @@ function renderCalendar() {
         const shiftCode = (shiftMap[agentIndex] && shiftMap[agentIndex][d]) || '';
         const shiftInfo = SHIFT_CODES[shiftCode] || SHIFT_CODES[''];
         const td = document.createElement('td');
-        td.style.padding = '3px 2px';
-        td.style.borderBottom = '1px solid #eef1f4';
-        td.style.borderRight = '1px solid #eef1f4';
-        td.style.height = '34px';
-        td.style.verticalAlign = 'middle';
-
         const dow = (firstDayOfWeek + d - 1) % 7;
         if (dow === 0 || dow === 6) td.classList.add('weekend');
+        if (isTodayDay(d)) td.classList.add('today');
 
         const select = document.createElement('select');
         select.className = 'shift-select shift-' + shiftCode;
@@ -1204,6 +1159,7 @@ async function loadManageList() {
   try {
     const rosters = await apiFetch('/api/rostering');
     if (!rosters.length) {
+      document.getElementById('manageCount').textContent = '';
       empty.textContent = 'Belum ada roster tersimpan.';
       empty.style.display = 'block';
       container.style.display = 'none';
@@ -1211,18 +1167,19 @@ async function loadManageList() {
     }
     empty.style.display = 'none';
     container.style.display = 'block';
+    document.getElementById('manageCount').textContent = rosters.length + ' roster tersimpan';
     container.innerHTML = rosters.map(r => {
-      const tgl = new Date(r.created_at);
-      const tglStr = tgl.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
-      const sectionCount = {};
+      const tgl = new Date(String(r.created_at).replace(' ', 'T') + 'Z');
+      const tglStr = isNaN(tgl) ? '-' : tgl.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+      const shiftTxt = (r.shift_count != null) ? (r.shift_count + ' shift terisi') : '';
       return '<div class="saved-roster">' +
         '<div class="saved-roster-info">' +
           '<span class="saved-roster-title">' + MONTHS[r.bulan] + ' ' + r.tahun + '</span>' +
-          '<span class="saved-roster-meta">' + r.jumlah_karyawan + ' karyawan • Dibuat: ' + tglStr + '</span>' +
+          '<span class="saved-roster-meta">' + r.jumlah_karyawan + ' karyawan' + (shiftTxt ? ' &bull; ' + shiftTxt : '') + '<br>Dibuat: ' + tglStr + '</span>' +
         '</div>' +
         '<div class="saved-roster-actions">' +
-          '<button class="btn-ghost btn-sm edit-roster" data-id="' + r.id + '">Edit</button>' +
-          '<button class="btn-danger btn-sm delete-roster" data-id="' + r.id + '">Hapus</button>' +
+          '<button class="btn-primary edit-roster" data-id="' + r.id + '">Buka</button>' +
+          '<button class="btn-ghost btn-sm delete-roster" data-id="' + r.id + '" style="color:var(--red);">Hapus</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -1305,6 +1262,7 @@ async function deleteManageRoster(id) {
   if (!confirm('Hapus roster ' + MONTHS[roster.bulan] + ' ' + roster.tahun + '? Semua shift juga akan terhapus.')) return;
   try {
     await apiFetch('/api/rostering/' + id, { method: 'DELETE' });
+    if (String(currentRosterId) === String(id)) { currentRoster = null; currentRosterId = null; currentCalendarAgents = {}; shiftMap = {}; agentSections = {}; }
     alert('Roster dihapus');
     await loadManageList();
   } catch (err) {
@@ -1404,16 +1362,26 @@ async function deleteManageRoster(id) {
 
   document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
 
-  document.getElementById('manageRostersBtn').addEventListener('click', async () => {
-    if (currentRoster && currentRosterId) {
-      const saveConfirm = confirm('Simpan shift sebelum pindah ke Kelola Roster?');
+  async function openCreatedList() {
+    if (currentRoster && currentRosterId && document.getElementById('calendarCard').style.display !== 'none') {
+      const saveConfirm = confirm('Simpan shift sebelum pindah ke Created Roster?');
       if (saveConfirm) await saveCurrentShifts();
     }
     document.getElementById('calendarCard').style.display = 'none';
     document.getElementById('pickerCard').style.display = 'none';
     document.getElementById('manageCard').style.display = 'block';
+    setRosterTab('created');
     manageMode = true;
     await loadManageList();
+  }
+  document.getElementById('manageRostersBtn').addEventListener('click', openCreatedList);
+  document.getElementById('tabCreated').addEventListener('click', openCreatedList);
+  document.getElementById('tabBuat').addEventListener('click', () => {
+    document.getElementById('manageCard').style.display = 'none';
+    if (currentRoster) document.getElementById('calendarCard').style.display = 'block';
+    else document.getElementById('pickerCard').style.display = 'block';
+    setRosterTab('buat');
+    manageMode = false;
   });
 });
 </script>

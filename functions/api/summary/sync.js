@@ -47,16 +47,17 @@ export async function onRequestPost(context) {
     let channelRows = 0, produkRows = 0;
 
     const upsertChannel = (p, channel, total, rt, aht, scr) => {
+      // Tanpa ON CONFLICT: tabel di produksi bisa saja tidak punya UNIQUE(bulan, tahun, channel).
+      // UPDATE dulu (nilai null tidak menimpa nilai lama), INSERT hanya kalau barisnya belum ada.
+      stmts.push(env.DB.prepare(
+        `UPDATE channel_records SET totalInteraksi = ?,
+           responseTime = COALESCE(?, responseTime), aht = COALESCE(?, aht), scr = COALESCE(?, scr), updatedAt = ?
+         WHERE bulan = ? AND tahun = ? AND channel = ?`
+      ).bind(total, r2(rt), r2(aht), r2(scr), now, p.month, p.year, channel));
       stmts.push(env.DB.prepare(
         `INSERT INTO channel_records (id, bulan, tahun, channel, totalInteraksi, responseTime, aht, scr, createdAt, updatedAt)
-         VALUES (?,?,?,?,?,?,?,?,?,?)
-         ON CONFLICT(bulan, tahun, channel) DO UPDATE SET
-           totalInteraksi = excluded.totalInteraksi,
-           responseTime = COALESCE(excluded.responseTime, channel_records.responseTime),
-           aht = COALESCE(excluded.aht, channel_records.aht),
-           scr = COALESCE(excluded.scr, channel_records.scr),
-           updatedAt = excluded.updatedAt`
-      ).bind(crypto.randomUUID(), p.month, p.year, channel, total, r2(rt), r2(aht), r2(scr), now, now));
+         SELECT ?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM channel_records WHERE bulan = ? AND tahun = ? AND channel = ?)`
+      ).bind(crypto.randomUUID(), p.month, p.year, channel, total, r2(rt), r2(aht), r2(scr), now, now, p.month, p.year, channel));
       channelRows++;
     };
     const upsertProduk = (p, produk, total) => {

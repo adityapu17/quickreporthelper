@@ -28,6 +28,7 @@ export const DETAIL_CANDIDATES = {
   ticket_status:         ['status', 'ticketstatus', 'statusticket'],
   ticket_severity:       ['severity', 'ticketseverity', 'severitylevel', 'priority', 'prioritas'],
   ticket_unit:           ['unit', 'posisi', 'position', 'currentunit', 'currentposition', 'unitposisi', 'posisiunit', 'posisitiket', 'assignedunit', 'unitkerja', 'unitname'],
+  ticket_channel_name:   ['channelname', 'channel', 'sumber', 'source', 'sourcename'],
   ticket_created_by:     ['createdby', 'createby', 'openby', 'openedby', 'creator', 'reporter', 'dibuatoleh', 'pembuat', 'requester', 'createdname', 'createduser'],
   ticket_remarks:        ['remarks', 'remark', 'catatan', 'keterangan', 'notes', 'note', 'resolution', 'solusi'],
   ticket_feedback:       ['feedback', 'feedbackcustomer', 'customerfeedback', 'feedbackuser', 'feedbackpelanggan'],

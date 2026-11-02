@@ -33,7 +33,7 @@ export async function onRequestGet(context) {
     const idParam = url.searchParams.get('id');
     if (idParam) {
       const row = await env.DB.prepare(
-        'SELECT t.id, t.period_id, t.sub_category_raw, t.detail_sub_category, t.date_open, t.raw_json, p.label AS period_label ' +
+        'SELECT t.id, t.period_id, t.channel, t.sub_category_raw, t.detail_sub_category, t.date_open, t.raw_json, p.label AS period_label ' +
         'FROM tickets t LEFT JOIN periods p ON p.id = t.period_id WHERE t.id = ?').bind(Number(idParam)).first();
       if (!row) return Response.json({ error: 'Tiket tidak ditemukan.' }, { status: 404 });
       const raw = parseRaw(row);
@@ -55,6 +55,9 @@ export async function onRequestGet(context) {
         severity: field('ticket_severity'),
         unit: field('ticket_unit'),
         createdBy: field('ticket_created_by'),
+        // Sumber interaksi = kolom channel_name (nama header bisa diatur di Konfigurasi Kolom: ticket_channel_name).
+        // Kalau header tidak ada di raw_json, pakai channel yang tersimpan saat upload.
+        channel: { header: cols.ticket_channel_name || null, value: txt(get(raw, 'ticket_channel_name')) || txt(row.channel) },
         remarks: field('ticket_remarks'),
         feedback: field('ticket_feedback'),
         subCategory: txt(row.sub_category_raw),

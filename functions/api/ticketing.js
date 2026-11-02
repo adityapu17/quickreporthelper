@@ -36,6 +36,8 @@ const FIELD_CANDIDATES = {
 const ALIASES = { ticket_detail_subcategory: 'ticket_detailSubCategory' };
 
 const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+// Header kolom Sub Category di raw_json (dipakai kalau sub_category_raw kosong).
+const SUBCAT_HEADERS = ['subcategory', 'subcat', 'kategorisub'];
 
 function parseTs(v) {
   if (v === null || v === undefined) return null;
@@ -74,6 +76,11 @@ function statusGroup(v) {
   if (n.includes('progress')) return 'On Progress';
   if (n.includes('open')) return 'Open';
   return 'Lainnya';
+}
+
+function subCatFromRaw(raw) {
+  const k = Object.keys(raw || {}).find(h => SUBCAT_HEADERS.includes(norm(h)));
+  return k ? raw[k] : '';
 }
 
 function subKeyOf(raw) {
@@ -139,7 +146,7 @@ export async function onRequestGet(context) {
       const out = [];
       for (let i = 0; i < ids.length; i += 80) {
         const part = ids.slice(i, i + 80);
-        const sql = 'SELECT id, period_id, sub_category_raw, detail_sub_category, date_open, raw_json FROM tickets WHERE ' + where +
+        const sql = 'SELECT id, period_id, sub_category_raw, detail_sub_category, date_open, escalated, raw_json FROM tickets WHERE ' + where +
                     ' AND period_id IN (' + part.map(() => '?').join(',') + ')';
         const { results } = await env.DB.prepare(sql).bind(...extraBind, ...part).all();
         (results || []).forEach(r => out.push(r));
@@ -153,6 +160,14 @@ export async function onRequestGet(context) {
       tickets = await fetchTickets('escalated = 1', []);
       if (tickets.length) escalatedSource = 'fallback';
     }
+
+    // Event Management dikenali dari kolom subCategory (isinya "event management"), BUKAN dari flag escalated.
+    // Tiket Event Management yang belum berstatus escalated ikut ditarik supaya tampil di dashboard.
+    const have = new Set(tickets.map(t => t.id));
+    const eventExtra = (await fetchTickets(
+      "replace(replace(replace(lower(COALESCE(sub_category_raw,'')),'-',''),' ',''),'_','') LIKE '%eventmanagement%'", []
+    )).filter(t => !have.has(t.id));
+    tickets = tickets.concat(eventExtra);
 
     // --- resolve header dari gabungan key semua baris (sample 200 baris pertama) ---
     const parsed = tickets.map(t => {
@@ -203,7 +218,7 @@ export async function onRequestGet(context) {
       // tiket yang posisinya di unit Supervisor dikecualikan dari semua hitungan
       if (cols.ticket_unit && excludeValue && norm(p.raw[cols.ticket_unit]).includes(excludeValue)) { excludedCount++; return; }
       totalEscalated++;
-      const sk = subKeyOf(p.t.sub_category_raw);
+      const sk = subKeyOf(p.t.sub_category_raw) || subKeyOf(subCatFromRaw(p.raw));
       if (!sk) return;
       const out = subsOut[sk];
       out.total++;
@@ -353,6 +368,7 @@ export async function onRequestGet(context) {
       subs: subsOut,
       targets: TARGET_HOURS,
       escalated: { header: escHeader, source: escalatedSource },
+      eventExtra: eventExtra.length, // tiket Event Management yang tidak berstatus escalated tapi ikut dihitung
       excluded: { count: excludedCount, unitColumn: cols.ticket_unit, value: config.ticketing_exclude_unit || 'supervisor' },
       columns: cols,           // header yang terdeteksi (null = tidak ketemu)
       generatedAt: now

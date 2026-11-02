@@ -146,6 +146,14 @@
   .tl li.none{ color:var(--slate-soft); }
   .textblock{ white-space:pre-wrap; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; }
   .badge.b-info{ background:#e7eefb; color:var(--blue); }
+  .st-pill{ display:inline-block; padding:2px 11px; border-radius:999px; font-size:12px; font-weight:700; line-height:1.5; }
+  .st-open, .st-reopen{ background:#fde68a; color:#78350f; }
+  .st-progress{ background:#dbeafe; color:#1d4ed8; }
+  .st-pending{ background:#fed7aa; color:#9a3412; }
+  .st-resolved{ background:#111827; color:#fff; }
+  .st-closed{ background:#e5e7eb; color:#4b5563; }
+  .st-other{ background:var(--paper); color:var(--slate); border:1px solid var(--line); }
+  .kv .v.strong{ font-weight:700; }
   @media (max-width:980px){ .s-layout{ grid-template-columns:1fr; } .kv{ grid-template-columns:1fr; gap:2px 0; } .kv .k{ margin-top:8px; } }
   @media (max-width:980px){ .totals{ grid-template-columns:repeat(2,1fr);} .grid4{ grid-template-columns:repeat(2,1fr);} .split{ grid-template-columns:1fr; } }
 </style>
@@ -317,10 +325,14 @@ function render(){
     ? '<div class="hint" style="margin:-8px 0 16px">' + nf(ex.count) + ' tiket dikecualikan karena unit "' + esc(ex.value) + '" (kolom: ' + esc(ex.unitColumn) + '). Tidak ikut hitungan di bawah.</div>'
     : '';
 
+  const evNote = data.eventExtra > 0
+    ? '<div class="hint" style="margin:-8px 0 16px">Event Management dihitung dari kolom Sub Category: ' + nf(data.eventExtra) + ' tiket belum berstatus escalated ikut dihitung.</div>'
+    : '';
+
   const picker = '<select id="sub-select" aria-label="Detail sub category">' +
     SUB_ORDER.map(s => '<option value="' + s.key + '"' + (s.key === activeSub ? ' selected' : '') + '>' + s.label + '</option>').join('') + '</select>';
 
-  $('out').innerHTML = escalatedWarning() + missingColsWarning() + totalsHtml + exNote +
+  $('out').innerHTML = escalatedWarning() + missingColsWarning() + totalsHtml + exNote + evNote +
     '<div class="card"><div class="detail-head"><h2>Detail per Sub Category</h2>' + picker + '</div>' +
     '<div class="card-body" id="detail"></div></div>';
   $('sub-select').addEventListener('change', (e) => { activeSub = e.target.value; catOpen = null; showOut = false; outFilter = 'Semua'; renderDetail(); });
@@ -633,9 +645,31 @@ function fmtRemarks(t){
   return s.replace(/\n[ \t]*\n+/g, '\n').trim();
 }
 
-function kv(k, v, hdr){
-  const val = (v === '' || v === null || v === undefined) ? '<span class="muted">—' + (hdr === null ? ' (kolom belum terdeteksi)' : '') + '</span>' : esc(v);
-  return '<div class="k">' + k + '</div><div class="v">' + val + '</div>';
+// Status -> pill berwarna. Urutan cek penting: "reopen" harus sebelum "open".
+function statusPill(v){
+  const t = String(v == null ? '' : v).trim();
+  if (!t) return '';
+  const n = t.toLowerCase().replace(/[^a-z]/g, '');
+  const cls = n.includes('reopen') ? 'st-reopen' : n.includes('pending') ? 'st-pending' : n.includes('progress') ? 'st-progress'
+    : n.includes('resolve') ? 'st-resolved' : n.includes('close') ? 'st-closed' : n.includes('open') ? 'st-open' : 'st-other';
+  return '<span class="st-pill ' + cls + '">' + esc(t) + '</span>';
+}
+
+// Sumber interaksi (kolom channel_name) dirapikan penulisannya.
+function fmtSource(v){
+  const t = String(v == null ? '' : v).trim();
+  const n = t.toLowerCase().replace(/[^a-z]/g, '');
+  if (n === 'whatsapp' || n === 'wa') return 'WhatsApp';
+  if (n === 'email') return 'Email';
+  if (n === 'voice') return 'Voice';
+  if (n === 'manual') return 'Manual';
+  return t;
+}
+
+function kv(k, v, hdr, opt){
+  opt = opt || {};
+  const val = (v === '' || v === null || v === undefined) ? '<span class="muted">—' + (hdr === null ? ' (kolom belum terdeteksi)' : '') + '</span>' : (opt.html ? opt.html(v) : esc(v));
+  return '<div class="k">' + k + '</div><div class="v' + (opt.strong ? ' strong' : '') + '">' + val + '</div>';
 }
 
 function detailHtml(d){
@@ -648,9 +682,10 @@ function detailHtml(d){
   const block = (title, f, fmt) => '<div class="sec-title">' + title + '</div>' + (f.value ? '<div class="textblock">' + esc(fmt ? fmt(f.value) : f.value) + '</div>' : '<div class="muted">—' + (f.header === null ? ' (kolom belum terdeteksi)' : '') + '</div>');
   return '<div class="card" style="margin:0"><div class="card-body">' +
     '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px"><h3 style="margin:0;font-family:var(--heading);font-size:16px">Tiket ' + esc(d.id) + '</h3>' +
-    (d.escalated ? '<span class="badge b-info">Escalated</span>' : '') + (d.period ? '<span class="muted">Periode ' + esc(d.period) + '</span>' : '') + '</div>' +
-    '<div class="kv">' + kv('Subject', d.subject.value, d.subject.header) + kv('Status', d.status.value, d.status.header) + kv('Severity', d.severity.value, d.severity.header) +
-    kv('Sub Category', d.subCategory) + kv('Detail Sub Category', d.detailSubCategory) + kv('Unit', d.unit.value, d.unit.header) + kv('Dibuat / Dibuka oleh', d.createdBy.value, d.createdBy.header) + '</div>' +
+    (d.escalated ? '<span style="font-size:12.5px;font-weight:600;color:var(--slate)">Escalated</span>' : '') + (d.period ? '<span class="muted">Periode ' + esc(d.period) + '</span>' : '') + '</div>' +
+    '<div class="kv">' + kv('Subject', d.subject.value, d.subject.header, { strong: true }) + kv('Status', d.status.value, d.status.header, { html: statusPill }) + kv('Severity', d.severity.value, d.severity.header) +
+    kv('Sub Category', d.subCategory) + kv('Detail Sub Category', d.detailSubCategory) + kv('Unit', d.unit.value, d.unit.header) + kv('Dibuat / Dibuka oleh', d.createdBy.value, d.createdBy.header) +
+    kv('Sumber', fmtSource(d.channel && d.channel.value), d.channel ? d.channel.header : null) + '</div>' +
     '<div class="sec-title">Riwayat tanggal</div><ul class="tl">' + tl + '</ul>' +
     block('Remarks', d.remarks, fmtRemarks) + block('Feedback', d.feedback) +
     '<details class="skipped" style="margin-top:18px"><summary style="color:var(--slate)">Semua kolom data (' + d.allColumns.length + ')</summary><div class="tbl-wrap"><table><tbody>' +

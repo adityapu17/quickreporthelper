@@ -618,6 +618,21 @@ async function openDetail(i){
   }
 }
 
+// Remarks dari export sering kehilangan baris baru (label menempel ke kata sebelumnya: "...MeteraiSubjek :").
+// Dirapikan hanya saat ditampilkan; data asli di database tidak diubah.
+function fmtRemarks(t){
+  let s = String(t == null ? '' : t).replace(/\r\n?/g, '\n');
+  s = s.replace(/[ \t]*(Kategori|Subjek|Tipe Tiket|Pelapor|Perusahaan|Keterangan|Other Information|Email Account Used)([ \t]*:)/g, '\n$1$2');
+  const i = s.indexOf('Other Information');
+  if (i >= 0) {
+    const head = s.slice(0, i), tail = s.slice(i)
+      .replace(/[ \t]+([A-E])\.[ \t]+(?=[A-Z])/g, '\n$1. ')
+      .replace(/[ \t]*_{5,}[ \t]*/g, '\n_________\n');
+    s = head + tail;
+  }
+  return s.replace(/\n[ \t]*\n+/g, '\n').trim();
+}
+
 function kv(k, v, hdr){
   const val = (v === '' || v === null || v === undefined) ? '<span class="muted">—' + (hdr === null ? ' (kolom belum terdeteksi)' : '') + '</span>' : esc(v);
   return '<div class="k">' + k + '</div><div class="v">' + val + '</div>';
@@ -630,14 +645,14 @@ function detailHtml(d){
     const note = !has && x.header === null && k !== 'open' ? ' <span class="muted">(kolom belum terdeteksi)</span>' : '';
     return '<li class="' + (has ? 'has' : 'none') + '"><span class="tl-k">' + label + '</span> — ' + (has ? fmtDt(x.ts, x.mode) : '—') + note + '</li>';
   }).join('');
-  const block = (title, f) => '<div class="sec-title">' + title + '</div>' + (f.value ? '<div class="textblock">' + esc(f.value) + '</div>' : '<div class="muted">—' + (f.header === null ? ' (kolom belum terdeteksi)' : '') + '</div>');
+  const block = (title, f, fmt) => '<div class="sec-title">' + title + '</div>' + (f.value ? '<div class="textblock">' + esc(fmt ? fmt(f.value) : f.value) + '</div>' : '<div class="muted">—' + (f.header === null ? ' (kolom belum terdeteksi)' : '') + '</div>');
   return '<div class="card" style="margin:0"><div class="card-body">' +
     '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px"><h3 style="margin:0;font-family:var(--heading);font-size:16px">Tiket ' + esc(d.id) + '</h3>' +
     (d.escalated ? '<span class="badge b-info">Escalated</span>' : '') + (d.period ? '<span class="muted">Periode ' + esc(d.period) + '</span>' : '') + '</div>' +
     '<div class="kv">' + kv('Subject', d.subject.value, d.subject.header) + kv('Status', d.status.value, d.status.header) + kv('Severity', d.severity.value, d.severity.header) +
     kv('Sub Category', d.subCategory) + kv('Detail Sub Category', d.detailSubCategory) + kv('Unit', d.unit.value, d.unit.header) + kv('Dibuat / Dibuka oleh', d.createdBy.value, d.createdBy.header) + '</div>' +
     '<div class="sec-title">Riwayat tanggal</div><ul class="tl">' + tl + '</ul>' +
-    block('Remarks', d.remarks) + block('Feedback', d.feedback) +
+    block('Remarks', d.remarks, fmtRemarks) + block('Feedback', d.feedback) +
     '<details class="skipped" style="margin-top:18px"><summary style="color:var(--slate)">Semua kolom data (' + d.allColumns.length + ')</summary><div class="tbl-wrap"><table><tbody>' +
     d.allColumns.map(c => '<tr><td style="width:34%;color:var(--slate-soft);font-weight:600">' + esc(c[0]) + '</td><td style="word-break:break-word">' + (c[1] === '' ? '<span class="muted">—</span>' : esc(c[1])) + '</td></tr>').join('') +
     '</tbody></table></div></details></div></div>';

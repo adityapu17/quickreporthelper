@@ -7,6 +7,7 @@
 // file only covers static assets).
 
 import { ensureRoleColumn, normRole } from './_lib/roles.js';
+import { verifyFirebaseToken, checkHadesAccess, hadesOrigins } from './_lib/hades-auth.js';
 
 // Security headers applied to every response.
 const SECURITY_HEADERS = {
@@ -44,6 +45,46 @@ export async function onRequest(context) {
   const { request, env, next } = context;
   const url = new URL(request.url);
   const path = url.pathname;
+
+  // --- Ticket Log di Hades -----------------------------------------------------------------
+  // Hanya GET /api/ticketing/search yang boleh dipanggil dari Hades dengan Firebase ID token
+  // (tanpa cookie sesi QRH). Endpoint lain tidak terpengaruh.
+  const hadesPath = path === '/api/ticketing/search';
+  const origin = request.headers.get('Origin') || '';
+  const hadesOrigin = hadesOrigins(env).includes(origin) ? origin : '';
+  const hadesCors = (extra) => ({
+    ...SECURITY_HEADERS, ...extra,
+    ...(hadesOrigin ? { 'Access-Control-Allow-Origin': hadesOrigin } : {}),
+    'Vary': 'Origin',
+  });
+
+  if (hadesPath && request.method === 'OPTIONS' && hadesOrigin) {
+    return new Response(null, { status: 204, headers: hadesCors({
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Max-Age': '86400',
+    }) });
+  }
+
+  const authz = request.headers.get('Authorization') || '';
+  if (hadesPath && request.method === 'GET' && /^Bearer\s/i.test(authz)) {
+    const token = authz.replace(/^Bearer\s+/i, '');
+    try {
+      const { uid } = await verifyFirebaseToken(token);
+      const access = await checkHadesAccess(token, uid);
+      if (!access.ok) {
+        return Response.json({ error: access.reason }, { status: 403, headers: hadesCors({ 'Cache-Control': 'no-store' }) });
+      }
+    } catch (e) {
+      return Response.json({ error: String((e && e.message) || 'Token tidak valid.') }, { status: 401, headers: hadesCors({ 'Cache-Control': 'no-store' }) });
+    }
+    const response = await next();
+    const headers = new Headers(response.headers);
+    Object.entries(hadesCors({ 'Cache-Control': 'no-store' })).forEach(([k, v]) => {
+      if (!['content-type', 'set-cookie'].includes(k.toLowerCase())) headers.set(k, v);
+    });
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
 
   // Handle CORS preflight for API routes.
   if (request.method === 'OPTIONS' && path.startsWith('/api/')) {

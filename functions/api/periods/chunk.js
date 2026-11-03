@@ -1,5 +1,5 @@
 // POST /api/periods/chunk  body: { period_id, kind, rows: [...] }
-// kind: 'ticket' | 'gap' | 'voice' — inserts a batch of rows into the
+// kind: 'ticket' | 'gap' | 'voice' - inserts a batch of rows into the
 // matching table (called repeatedly by the client so it can show a %
 // progress bar). Internally re-chunks per kind to stay under D1's
 // 100-bound-parameter-per-query limit.
@@ -42,6 +42,10 @@ export async function onRequestPost(context) {
       const params = [];
       chunk.forEach(r => params.push(...cfg.toParams(period_id, r)));
       await env.DB.prepare(sql).bind(...params).run();
+    }
+    // Data tiket berubah: agregat periode ini (ticket_agg, lihat summary/insight.js) harus dibangun ulang.
+    if (kind === 'ticket') {
+      await env.DB.prepare('DELETE FROM ticket_agg_ver WHERE period_id = ?').bind(period_id).run();
     }
     return Response.json({ ok: true, inserted: rows.length });
   } catch (err) {

@@ -1,5 +1,6 @@
 // GET /api/summary/insight?year=2026|all&month=all|0..11&produk=all|emeterai|perisai|shield
-// Agregasi dari tabel `tickets` (Report Ticket yang tersimpan di DB):
+// Agregasi dari tabel `tickets` (Report Ticket yang tersimpan di DB), lewat tabel
+// cache `ticket_agg` (satu GROUP BY per periode, dibangun ulang hanya kalau periodenya berubah):
 //   kategori = detail_sub_category, jenis = main_category (Informasi/Keluhan/Permintaan),
 //   customer category = customer_category (kolom ticket_customer_category),
 //   produk = sub_category_raw, company = company, interaksi = jumlah baris tiket.
@@ -48,6 +49,23 @@ function build(rows, levels, limit) {
   };
 }
 
+// Bangun ulang agregat periode yang belum punya penanda versi atau versinya beda.
+// Versi = row_count|uploaded_at; chunk.js juga menghapus penanda tiap batch tiket masuk.
+async function ensureAgg(db) {
+  const ps = (await db.prepare('SELECT id, row_count, uploaded_at FROM periods').all()).results || [];
+  const vs = (await db.prepare('SELECT period_id, ver FROM ticket_agg_ver').all()).results || [];
+  const have = new Map(vs.map(v => [v.period_id, v.ver]));
+  for (const p of ps) {
+    const ver = p.row_count + '|' + p.uploaded_at;
+    if (have.get(p.id) === ver) continue;
+    await db.batch([
+      db.prepare('DELETE FROM ticket_agg WHERE period_id = ?').bind(p.id),
+      db.prepare('INSERT INTO ticket_agg (period_id, sub, type, cat, company, custcat, n) SELECT period_id, sub_category_raw, main_category, detail_sub_category, company, customer_category, COUNT(*) FROM tickets WHERE period_id = ? GROUP BY sub_category_raw, main_category, detail_sub_category, company, customer_category').bind(p.id),
+      db.prepare('INSERT OR REPLACE INTO ticket_agg_ver (period_id, ver) VALUES (?, ?)').bind(p.id, ver)
+    ]);
+  }
+}
+
 export async function onRequestGet(context) {
   const { request, env } = context;
   try {
@@ -57,16 +75,18 @@ export async function onRequestGet(context) {
     const produk = url.searchParams.get('produk') || 'all';
     if (produk !== 'all' && !PRODUK_MATCH[produk]) return Response.json({ error: 'produk tidak valid' }, { status: 400 });
 
+    await ensureAgg(env.DB);
+
     const where = [], binds = [];
     if (year !== 'all') { const y = Number(year); if (!Number.isInteger(y)) return Response.json({ error: 'year tidak valid' }, { status: 400 }); where.push('p.year = ?'); binds.push(y); }
     if (month !== 'all') { const m = Number(month); if (!Number.isInteger(m) || m < 0 || m > 11) return Response.json({ error: 'month tidak valid' }, { status: 400 }); where.push('p.month = ?'); binds.push(m); }
     if (produk !== 'all') {
-      where.push("replace(replace(replace(lower(COALESCE(t.sub_category_raw,'')),'-',''),' ',''),'_','') LIKE ?");
+      where.push("replace(replace(replace(lower(COALESCE(a.sub,'')),'-',''),' ',''),'_','') LIKE ?");
       binds.push('%' + PRODUK_MATCH[produk] + '%');
     }
-    const sql = 'SELECT t.sub_category_raw AS sub, t.main_category AS type, t.detail_sub_category AS cat, t.company AS company, t.customer_category AS custcat, COUNT(*) AS n ' +
-                'FROM tickets t JOIN periods p ON p.id = t.period_id' + (where.length ? ' WHERE ' + where.join(' AND ') : '') +
-                ' GROUP BY t.sub_category_raw, t.main_category, t.detail_sub_category, t.company, t.customer_category';
+    const sql = 'SELECT a.sub AS sub, a.type AS type, a.cat AS cat, a.company AS company, a.custcat AS custcat, SUM(a.n) AS n ' +
+                'FROM ticket_agg a JOIN periods p ON p.id = a.period_id' + (where.length ? ' WHERE ' + where.join(' AND ') : '') +
+                ' GROUP BY a.sub, a.type, a.cat, a.company, a.custcat';
     const { results } = await env.DB.prepare(sql).bind(...binds).all();
 
     const rows = (results || []).map(r => ({

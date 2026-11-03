@@ -1,6 +1,8 @@
 // POST /api/periods/init  body: { year, month, label }
 // Creates (or clears, if it already exists) a period, ready to receive
 // row chunks via /api/periods/chunk.
+import { bumpVersion } from '../../_lib/cache.js';
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   try {
@@ -24,6 +26,7 @@ export async function onRequestPost(context) {
       ).bind(year, month, label || null).run();
       periodId = res.meta.last_row_id;
     }
+    await bumpVersion(env);
     return Response.json({ ok: true, period_id: periodId });
   } catch (err) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });

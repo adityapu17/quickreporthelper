@@ -4,6 +4,7 @@
 // Konfigurasi Kolom `ticket_date_resolved`, default auto-detect / date_resolved).
 // `value` harus dikirim dalam format yang sama dengan date open tiket
 // (ISO UTC atau "YYYY-MM-DD HH:mm:ss") — dihitung di sisi klien.
+import { bumpVersion } from '../../_lib/cache.js';
 
 const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
 const RESOLVED_CANDIDATES = ['dateresolved', 'resolveddate', 'dateresolve', 'tglresolved'];
@@ -60,6 +61,7 @@ export async function onRequestPost(context) {
       .replace(/["\\]/g, '');
     const path = '$."' + header + '"';
     await env.DB.prepare('UPDATE tickets SET raw_json = json_set(raw_json, ?, ?) WHERE id = ?').bind(path, value, rowId).run();
+    await bumpVersion(env);
 
     return Response.json({ ok: true, header, value });
   } catch (err) {

@@ -122,6 +122,8 @@
   .search-box{ display:flex; gap:10px; align-items:center; }
   .search-box input{ flex:1; font-family:inherit; font-size:14px; padding:10px 14px; border:1px solid var(--line); border-radius:8px; }
   .search-box input:focus{ outline:2px solid var(--teal-soft); border-color:var(--teal); }
+  .search-box .s-go{ font-family:inherit; font-size:14px; padding:10px 20px; border:0; border-radius:8px; background:var(--teal); color:#fff; cursor:pointer; }
+  .search-box .s-go:disabled{ opacity:.6; cursor:default; }
   .s-filters{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:flex-end; margin:0 0 12px; }
   .s-filters label{ display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--slate-soft); }
   .s-filters select{ min-width:130px; max-width:260px; text-transform:none; letter-spacing:0; font-weight:400; }
@@ -199,8 +201,8 @@
   <div id="tab-search" hidden>
     <div class="card"><div class="card-body">
       <div class="picker-label">Cari tiket</div>
-      <div class="search-box"><input type="search" id="s-input" placeholder="Ketik ID tiket, subject, atau isi remarks (mengandung kata)..." autocomplete="off" aria-label="Cari tiket"></div>
-      <div class="hint" id="s-hint">Minimal 2 karakter. Mencari berdasarkan ID tiket, subject, atau remarks di seluruh data tiket yang tersimpan di database.</div>
+      <div class="search-box"><input type="search" id="s-input" placeholder="Ketik ID tiket, subject, atau isi remarks (mengandung kata)..." autocomplete="off" aria-label="Cari tiket"><button type="button" class="s-go" id="s-btn">Cari</button></div>
+      <div class="hint" id="s-hint">Tekan Enter atau klik Cari untuk mulai mencari (mengetik tidak memicu pencarian). Minimal 2 karakter. Mencari berdasarkan ID tiket, subject, atau remarks di seluruh data tiket yang tersimpan di database.</div>
     </div></div>
     <div id="s-out"></div>
   </div>
@@ -538,12 +540,17 @@ const sFilter = { year:'', month:'', detail:'' };
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const DATE_ROWS = [['open','Date Open'],['onProgress','On Progress'],['pending','Pending'],['resolved','Resolved'],['reopen','Reopen'],['lastUpdate','Last Update'],['closed','Closed']];
 
-$('s-input').addEventListener('input', () => { clearTimeout(sTimer); sTimer = setTimeout(doSearch, 300); });
+// Pencarian hanya jalan lewat Enter atau tombol Cari, bukan tiap ketikan (hemat reads D1).
+let sBusy = false;
+$('s-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+$('s-btn').addEventListener('click', doSearch);
 
 async function doSearch(){
   const q = $('s-input').value.trim();
   const out = $('s-out');
-  if (q.length < 2){ sItems = []; sActive = null; out.innerHTML = ''; return; }
+  if (q.length < 2){ sItems = []; sActive = null; out.innerHTML = '<div class="card"><div class="empty">Ketik minimal 2 karakter, lalu tekan Enter atau klik Cari.</div></div>'; return; }
+  if (sBusy) return;
+  sBusy = true; $('s-btn').disabled = true;
   const seq = ++sSeq;
   out.innerHTML = '<div class="card"><div class="empty"><span class="spinner"></span>Mencari...</div></div>';
   try {
@@ -557,6 +564,8 @@ async function doSearch(){
   } catch (e) {
     if (seq !== sSeq) return;
     out.innerHTML = '<div class="card"><div class="empty">Gagal mencari: ' + esc(e.message) + '</div></div>';
+  } finally {
+    sBusy = false; $('s-btn').disabled = false;
   }
 }
 

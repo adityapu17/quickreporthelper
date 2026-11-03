@@ -6,6 +6,7 @@
 // tabel `tickets`, jadi dibaca dari raw_json (baris asli Excel). Nama header
 // bisa di-override lewat Konfigurasi Kolom (column_config), kalau tidak diisi
 // akan auto-detect dari daftar kandidat di bawah.
+import { cachedJson } from '../_lib/cache.js';
 
 const SUBS = [
   { key: 'emeterai', label: 'E-Meterai',        match: 'emeterai' },
@@ -115,7 +116,7 @@ function makeResolver(sampleKeys, config) {
 
 const emptySev = () => ({ Critical: 0, High: 0, Medium: 0, Low: 0, Lainnya: 0 });
 
-export async function onRequestGet(context) {
+async function handleGet(context) {
   const { request, env } = context;
   try {
     const url = new URL(request.url);
@@ -377,3 +378,5 @@ export async function onRequestGet(context) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });
   }
 }
+
+export const onRequestGet = (context) => cachedJson(context, () => handleGet(context));

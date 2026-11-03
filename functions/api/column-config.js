@@ -1,6 +1,8 @@
 // GET /api/column-config — returns { key: value, ... } of all overrides.
 // POST /api/column-config  body: { config: { key: value, ... } } — upserts
 // every provided key (empty string clears an override back to default).
+import { bumpVersion } from '../_lib/cache.js';
+
 export async function onRequestGet(context) {
   const { env } = context;
   const { results } = await env.DB.prepare('SELECT key, value FROM column_config').all();
@@ -22,6 +24,7 @@ export async function onRequestPost(context) {
         'INSERT INTO column_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
       ).bind(key, value || '').run();
     }
+    await bumpVersion(env);
     return Response.json({ ok: true });
   } catch (err) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });

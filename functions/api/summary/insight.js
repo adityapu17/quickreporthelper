@@ -5,6 +5,7 @@
 //   customer category = customer_category (kolom ticket_customer_category),
 //   produk = sub_category_raw, company = company, interaksi = jumlah baris tiket.
 // Hasil berupa pohon siap tampil (maks 10 per level, sisanya diringkas di `more`).
+import { cachedJson } from '../../_lib/cache.js';
 
 const PRODUK_MATCH = { emeterai: 'emeterai', perisai: 'perisai', shield: 'perurishield' };
 const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -66,7 +67,7 @@ async function ensureAgg(db) {
   }
 }
 
-export async function onRequestGet(context) {
+async function handleGet(context) {
   const { request, env } = context;
   try {
     const url = new URL(request.url);
@@ -117,3 +118,5 @@ export async function onRequestGet(context) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });
   }
 }
+
+export const onRequestGet = (context) => cachedJson(context, () => handleGet(context));

@@ -1,4 +1,5 @@
-export async function onRequestGet(context) {
+import { cachedJson, bumpVersion } from '../../../_lib/cache.js';
+async function handleGet(context) {
   const { env, params } = context;
   const year = Number(params.year), month = Number(params.month);
   const period = await env.DB.prepare('SELECT * FROM periods WHERE year = ? AND month = ?')
@@ -43,5 +44,8 @@ export async function onRequestDelete(context) {
   await env.DB.prepare('DELETE FROM response_gaps WHERE period_id = ?').bind(period.id).run();
   await env.DB.prepare('DELETE FROM voice_records WHERE period_id = ?').bind(period.id).run();
   await env.DB.prepare('DELETE FROM periods WHERE id = ?').bind(period.id).run();
+  await bumpVersion(env);
   return Response.json({ ok: true });
 }
+
+export const onRequestGet = (context) => cachedJson(context, () => handleGet(context));

@@ -1,6 +1,7 @@
 // GET /api/ticketing/search?q=<teks>[&year=2026][&month=0-11][&detail=<teks>|__none__] -> daftar tiket (ticket id / subject / remarks mengandung teks), bisa difilter
 // GET /api/ticketing/search?id=<tickets.id> -> detail satu tiket
 import { norm, parseTs, dateMode, resolveColumns } from '../../_lib/ticket-fields.js';
+import { cachedJson } from '../../_lib/cache.js';
 
 const MAX_RESULTS = 300;   // item yang dikirim ke tampilan list (setelah filter)
 const SCAN_CAP = 5000;      // batas tiket yang dipindai per pencarian
@@ -22,7 +23,7 @@ function parseRaw(row) {
   try { return row.raw_json ? JSON.parse(row.raw_json) : {}; } catch (e) { return {}; }
 }
 
-export async function onRequestGet(context) {
+async function handleGet(context) {
   const { request, env } = context;
   try {
     const url = new URL(request.url);
@@ -145,3 +146,5 @@ export async function onRequestGet(context) {
     return Response.json({ error: err.message || String(err) }, { status: 500 });
   }
 }
+
+export const onRequestGet = (context) => cachedJson(context, () => handleGet(context));
